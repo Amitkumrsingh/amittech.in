@@ -5,8 +5,8 @@ import { getBlogPosts, getBlogSchema } from '../../lib/blog'
 import { absoluteUrl, getOgImageUrl, SITE_NAME } from '../../lib/site'
 
 export const metadata: Metadata = {
-  title: 'Engineering Insights - Amit Kumar Singh',
-  description: 'Backend engineering, distributed systems, Kafka, cloud, AI engineering, and system design insights from Amit Kumar Singh.',
+  title: 'Engineering Notes - Amit Kumar Singh',
+  description: 'Story-driven notes on backend engineering, distributed systems, scaling, AI, and lessons learned from building production systems.',
   alternates: {
     canonical: absoluteUrl('/blog'),
     types: {
@@ -14,28 +14,28 @@ export const metadata: Metadata = {
     }
   },
   openGraph: {
-    title: 'Engineering Insights - Amit Kumar Singh',
-    description: 'Production notes on backend engineering, distributed systems, Kafka, cloud, AI, and system design.',
+    title: 'Engineering Notes - Amit Kumar Singh',
+    description: 'Production lessons on backend engineering, distributed systems, scaling, AI, and system design.',
     url: absoluteUrl('/blog'),
     siteName: SITE_NAME,
     type: 'website',
     images: [
       {
-        url: getOgImageUrl('Engineering Insights', 'Backend Systems')
+        url: getOgImageUrl('Engineering Notes', 'Backend Systems')
       }
     ]
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Engineering Insights - Amit Kumar Singh',
-    description: 'Production notes on backend engineering, distributed systems, Kafka, cloud, AI, and system design.',
-    images: [getOgImageUrl('Engineering Insights', 'Backend Systems')]
+    title: 'Engineering Notes - Amit Kumar Singh',
+    description: 'Production lessons on backend engineering, distributed systems, scaling, AI, and system design.',
+    images: [getOgImageUrl('Engineering Notes', 'Backend Systems')]
   }
 }
 
 export default function BlogPage() {
   return (
-    <main className="px-4 sm:px-6 pb-8 pt-24 sm:pb-12 sm:pt-28 max-w-6xl mx-auto">
+    <main className="mx-auto max-w-6xl px-4 pb-10 pt-24 sm:px-6 sm:pb-14 sm:pt-28">
       <JsonLd data={getBlogSchema(getBlogPosts())} />
       <BlogSection />
     </main>

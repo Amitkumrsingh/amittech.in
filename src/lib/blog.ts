@@ -72,9 +72,9 @@ export function getBlogSchema(posts = getBlogPosts()) {
   return {
     '@context': 'https://schema.org',
     '@type': 'Blog',
-    name: `${SITE_NAME} Engineering Insights`,
+    name: `${SITE_NAME} Engineering Notes`,
     url: absoluteUrl('/blog'),
-    description: 'Backend engineering, distributed systems, Kafka, cloud, AI engineering, and system design insights from Amit Kumar Singh.',
+    description: 'Story-driven notes on backend engineering, distributed systems, scaling, AI, and lessons learned from building production systems.',
     publisher: {
       '@type': 'Person',
       name: SITE_NAME,
@@ -89,7 +89,7 @@ export function getBlogSchema(posts = getBlogPosts()) {
       dateModified: post.publishDate,
       articleSection: post.category,
       keywords: post.tags.join(', '),
-      description: post.summary,
+      description: post.hook,
       timeRequired: `PT${post.readingMinutes}M`,
       author: {
         '@type': 'Person',
@@ -118,7 +118,7 @@ export function getArticleSchema(post: BlogPost) {
     },
     articleSection: post.category,
     keywords: post.tags.join(', '),
-    description: post.summary,
+    description: post.hook,
     timeRequired: `PT${post.readingMinutes}M`
   }
 }

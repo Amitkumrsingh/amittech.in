@@ -2,9 +2,9 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { ReactNode } from 'react'
+import ArticleReadingProgress from '../../../components/ArticleReadingProgress'
 import BlogCover from '../../../components/BlogCover'
 import JsonLd from '../../../components/JsonLd'
-import type { BlogCategory } from '../../../data/blog'
 import { getArticleSchema, formatPublishDate, getBlogPost, getBlogPostPath, getBlogPosts, getBlogPostUrl, getRelatedPosts } from '../../../lib/blog'
 import { absoluteUrl, getOgImageUrl, SITE_NAME } from '../../../lib/site'
 
@@ -33,7 +33,7 @@ export function generateMetadata({ params }: ArticlePageProps): Metadata {
     },
     openGraph: {
       title: post.title,
-      description: post.summary,
+      description: post.hook,
       url,
       siteName: SITE_NAME,
       type: 'article',
@@ -44,7 +44,7 @@ export function generateMetadata({ params }: ArticlePageProps): Metadata {
     twitter: {
       card: 'summary_large_image',
       title: post.title,
-      description: post.summary,
+      description: post.hook,
       images: [ogImage]
     }
   }
@@ -56,183 +56,169 @@ export default function ArticlePage({ params }: ArticlePageProps) {
 
   const url = getBlogPostUrl(post)
   const relatedPosts = getRelatedPosts(post)
-  const codeExample = getCodeExample(post.category)
+  const tocItems = [
+    ...post.sections.map(section => ({ id: section.id, title: section.title })),
+    { id: 'lessons', title: 'What I took away' },
+    { id: 'production-notes', title: 'Production notes' }
+  ]
 
   return (
-    <main className="px-4 sm:px-6 pb-8 pt-24 sm:pb-12 sm:pt-28 max-w-6xl mx-auto">
+    <main className="relative px-4 pb-10 pt-24 sm:px-6 sm:pb-14 sm:pt-28">
+      <ArticleReadingProgress />
       <JsonLd data={getArticleSchema(post)} />
 
-      <article className="rounded-[32px] border border-white/10 bg-white/5 p-4 sm:p-6 shadow-[0_50px_140px_-100px_rgba(6,182,212,0.6)] backdrop-blur-2xl">
-        <BlogCover post={post} featured />
+      <article className="mx-auto max-w-6xl">
+        <header className="border-b border-white/10 pb-8">
+          <Link href="/blog" className="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:border-secondary/60 hover:bg-white/10">
+            Back to Engineering Notes
+          </Link>
 
-        <div className="grid gap-8 py-8 sm:py-10 lg:grid-cols-[220px_minmax(0,1fr)]">
-          <aside className="lg:sticky lg:top-28 lg:self-start">
-            <Link href="/blog" className="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10">
-              Back to blog
-            </Link>
-            <div className="mt-5 rounded-3xl border border-white/10 bg-black/20 p-4">
-              <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Contents</p>
-              <nav className="mt-4 grid gap-3 text-sm text-slate-300">
-                <a href="#context" className="hover:text-secondary">Engineering context</a>
-                <a href="#takeaways" className="hover:text-secondary">Key takeaways</a>
-                <a href="#implementation" className="hover:text-secondary">Implementation pattern</a>
-                <a href="#production-lens" className="hover:text-secondary">Production lens</a>
-                <a href="#related" className="hover:text-secondary">Related articles</a>
+          <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-end">
+            <div>
+              <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                <span className="text-secondary">{post.category}</span>
+                <span className="text-slate-700">/</span>
+                <span>{formatPublishDate(post.publishDate)}</span>
+                <span className="text-slate-700">/</span>
+                <span>{post.readingMinutes} min read</span>
+              </div>
+              <h1 className="mt-5 max-w-5xl text-4xl font-display font-semibold leading-[1.02] text-white sm:text-6xl lg:text-7xl">{post.title}</h1>
+              <p className="mt-6 max-w-3xl text-xl leading-9 text-slate-100">{post.hook}</p>
+              <p className="mt-5 max-w-3xl text-base leading-8 text-slate-400">{post.summary}</p>
+            </div>
+
+            <AuthorCard url={url} title={post.title} />
+          </div>
+
+          <div className="mt-8">
+            <BlogCover post={post} featured />
+          </div>
+        </header>
+
+        <div className="grid gap-10 py-10 lg:grid-cols-[230px_minmax(0,740px)_180px] lg:items-start">
+          <aside className="hidden lg:block lg:sticky lg:top-28">
+            <div className="border-l border-white/10 pl-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Contents</p>
+              <nav className="mt-4 grid gap-3 text-sm leading-6 text-slate-400">
+                {tocItems.map(item => (
+                  <a key={item.id} href={`#${item.id}`} className="transition hover:text-secondary">
+                    {item.title}
+                  </a>
+                ))}
               </nav>
             </div>
           </aside>
 
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.2em] text-slate-400">
-              <span className="rounded-full bg-secondary/15 px-3 py-1 text-secondary">{post.category}</span>
-              <span>{formatPublishDate(post.publishDate)}</span>
-              <span className="text-slate-600">/</span>
-              <span>{post.readingMinutes} min read</span>
-            </div>
+            <Callout>{post.hook}</Callout>
 
-            <h1 className="mt-5 max-w-3xl text-3xl sm:text-5xl font-display font-semibold leading-tight text-white">{post.title}</h1>
-            <p className="mt-5 max-w-3xl text-base sm:text-lg leading-8 text-slate-300">{post.summary}</p>
-
-            <div className="mt-6 flex flex-wrap gap-2">
-              {post.tags.map(tag => (
-                <span key={tag} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200">{tag}</span>
+            <div className="mt-10 space-y-12">
+              {post.sections.map(section => (
+                <section key={section.id} id={section.id} className="scroll-mt-28">
+                  <h2 className="text-3xl font-display font-semibold leading-tight text-white">{section.title}</h2>
+                  <div className="mt-5 space-y-5 text-lg leading-9 text-slate-300">
+                    {section.body.map(paragraph => (
+                      <p key={paragraph}>{paragraph}</p>
+                    ))}
+                  </div>
+                </section>
               ))}
-            </div>
 
-            <div className="mt-6 flex flex-wrap gap-3">
-              <a href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`} target="_blank" rel="noopener noreferrer" className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/10">Share on LinkedIn</a>
-              <a href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(post.title)}`} target="_blank" rel="noopener noreferrer" className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/10">Share on X</a>
-            </div>
-
-            <div className="mt-10 max-w-3xl space-y-10 text-slate-300">
-              <section id="context">
-                <h2 className="text-2xl font-semibold text-white">Engineering Context</h2>
-                <p className="mt-4 leading-8">
-                  This article looks at {post.category.toLowerCase()} through the lens of production work: ambiguous requirements, moving data, user-facing risk, operational visibility, and the tradeoffs teams actually inherit after a launch.
-                </p>
-              </section>
-
-              <Callout>
-                The useful architecture question is not “what is the ideal diagram?” It is “what can the team observe, recover, and evolve when real traffic and real failures arrive?”
-              </Callout>
-
-              <section id="takeaways">
-                <h2 className="text-2xl font-semibold text-white">Key Takeaways</h2>
-                <ul className="mt-4 space-y-3 leading-8">
-                  {post.takeaways.map(takeaway => (
-                    <li key={takeaway} className="flex gap-3">
-                      <span className="mt-3 h-1.5 w-1.5 shrink-0 rounded-full bg-secondary" />
-                      <span>{takeaway}</span>
+              <section id="lessons" className="scroll-mt-28 border-y border-white/10 py-8">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-secondary">What I took away</p>
+                <ul className="mt-5 grid gap-4">
+                  {post.takeaways.map((takeaway, index) => (
+                    <li key={takeaway} className="grid grid-cols-[36px_minmax(0,1fr)] gap-4">
+                      <span className="grid h-9 w-9 place-items-center rounded-full border border-secondary/25 bg-secondary/10 text-sm font-semibold text-secondary">
+                        {index + 1}
+                      </span>
+                      <span className="pt-1 text-lg leading-8 text-slate-200">{takeaway}</span>
                     </li>
                   ))}
                 </ul>
               </section>
 
-              <section id="implementation">
-                <h2 className="text-2xl font-semibold text-white">Implementation Pattern</h2>
-                <p className="mt-4 leading-8">
-                  A reliable implementation starts with clear ownership, explicit failure behavior, and enough instrumentation to understand whether the system is helping the business workflow or quietly accumulating risk.
-                </p>
-                <CodeBlock title={codeExample.title} language={codeExample.language} code={codeExample.code} />
-              </section>
-
-              <section id="production-lens">
-                <h2 className="text-2xl font-semibold text-white">Production Lens</h2>
-                <p className="mt-4 leading-8">
-                  The practical question is not whether the design is elegant. It is whether the system is observable, recoverable, cost-aware, and clear enough for another engineer to operate under pressure.
-                </p>
+              <section id="production-notes" className="scroll-mt-28">
+                <h2 className="text-3xl font-display font-semibold text-white">Production Notes</h2>
+                <div className="mt-5 grid gap-3">
+                  {post.productionNotes.map(note => (
+                    <div key={note} className="border-l border-secondary/40 bg-white/[0.03] px-4 py-3 text-base leading-7 text-slate-300">
+                      {note}
+                    </div>
+                  ))}
+                </div>
               </section>
             </div>
+          </div>
 
-            <section id="related" className="mt-12">
-              <h2 className="text-2xl font-semibold text-white">Related Articles</h2>
-              <div className="mt-5 grid gap-4 md:grid-cols-3">
-                {relatedPosts.map(related => (
-                  <Link key={related.slug} href={getBlogPostPath(related)} className="rounded-3xl border border-white/10 bg-white/5 p-4 transition hover:-translate-y-1 hover:bg-white/10">
-                    <p className="text-xs uppercase tracking-[0.18em] text-secondary">{related.category}</p>
-                    <h3 className="mt-3 text-sm font-semibold leading-6 text-white">{related.title}</h3>
-                    <p className="mt-2 text-xs leading-5 text-slate-400">{related.readingMinutes} min read</p>
-                  </Link>
+          <aside className="lg:sticky lg:top-28">
+            <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4 text-sm leading-6 text-slate-400 backdrop-blur-2xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Filed under</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {post.tags.map(tag => (
+                  <span key={tag} className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-slate-300">
+                    {tag}
+                  </span>
                 ))}
               </div>
-            </section>
-          </div>
+            </div>
+          </aside>
         </div>
+
+        <section id="related" className="border-t border-white/10 pt-10">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Keep reading</p>
+              <h2 className="mt-2 text-3xl font-display font-semibold text-white">Related engineering notes</h2>
+            </div>
+            <Link href="/blog" className="text-sm font-semibold text-secondary transition hover:text-white">View all notes</Link>
+          </div>
+
+          <div className="mt-6 grid gap-5 md:grid-cols-3">
+            {relatedPosts.map(related => (
+              <Link key={related.slug} href={getBlogPostPath(related)} className="group border-t border-white/10 pt-5 transition hover:-translate-y-1">
+                <BlogCover post={related} quiet />
+                <p className="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-secondary">{related.category}</p>
+                <h3 className="mt-2 text-xl font-display font-semibold leading-tight text-white transition group-hover:text-secondary">{related.title}</h3>
+                <p className="mt-3 text-sm leading-6 text-slate-400">{related.hook}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
       </article>
     </main>
   )
 }
 
+function AuthorCard({ url, title }: { url: string; title: string }) {
+  return (
+    <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-4 backdrop-blur-2xl">
+      <div className="flex items-center gap-3">
+        <div className="grid h-12 w-12 place-items-center rounded-full border border-secondary/30 bg-secondary/15 text-sm font-semibold text-secondary">AKS</div>
+        <div>
+          <p className="font-semibold text-white">Amit Kumar Singh</p>
+          <p className="text-sm text-slate-400">Backend Engineer</p>
+        </div>
+      </div>
+      <p className="mt-4 text-sm leading-6 text-slate-400">
+        I write about the production lessons behind backend systems, queues, databases, cloud, and AI products.
+      </p>
+      <div className="mt-5 grid gap-2">
+        <a href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`} target="_blank" rel="noopener noreferrer" className="inline-flex h-10 items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 text-sm font-semibold text-white transition hover:bg-white/10">
+          Share on LinkedIn
+        </a>
+        <a href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(title)}`} target="_blank" rel="noopener noreferrer" className="inline-flex h-10 items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 text-sm font-semibold text-white transition hover:bg-white/10">
+          Share on X
+        </a>
+      </div>
+    </div>
+  )
+}
+
 function Callout({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-3xl border border-secondary/20 bg-secondary/10 p-5 text-sm leading-7 text-slate-200">
+    <div className="border-y border-secondary/25 bg-secondary/10 px-5 py-6 text-xl font-display leading-9 text-white">
       {children}
     </div>
   )
-}
-
-function CodeBlock({ title, language, code }: { title: string; language: string; code: string }) {
-  return (
-    <div className="mt-5 overflow-hidden rounded-3xl border border-white/10 bg-black/70">
-      <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">{title}</p>
-        <span className="rounded-full bg-white/5 px-3 py-1 text-xs text-slate-400">{language}</span>
-      </div>
-      <pre className="overflow-x-auto p-4 text-sm leading-7 text-slate-100"><code>{code}</code></pre>
-    </div>
-  )
-}
-
-function getCodeExample(category: BlogCategory) {
-  if (category === 'Kafka' || category === 'Distributed Systems' || category === 'Microservices') {
-    return {
-      title: 'Idempotent event handling',
-      language: 'python',
-      code: `def handle_event(event, store, producer):
-    key = f"{event.topic}:{event.partition}:{event.offset}"
-
-    if store.exists(key):
-        return {"status": "duplicate"}
-
-    result = apply_business_change(event.payload)
-    store.save(key, result)
-    producer.publish("workflow.completed", result)
-
-    return {"status": "processed"}`
-    }
-  }
-
-  if (category === 'AI Engineering') {
-    return {
-      title: 'Production RAG boundary',
-      language: 'typescript',
-      code: `async function answerQuestion(question: string, userId: string) {
-  const docs = await retrieveRelevantDocs(question, { userId, limit: 6 })
-  const groundedContext = docs.map(doc => doc.excerpt).join("\\n---\\n")
-
-  return generateAnswer({
-    question,
-    context: groundedContext,
-    guardrails: ["cite_sources", "refuse_unknowns"]
-  })
-}`
-    }
-  }
-
-  return {
-    title: 'Reliable API boundary',
-    language: 'typescript',
-    code: `async function createWorkflow(payload: WorkflowInput) {
-  validate(payload)
-
-  const idempotencyKey = createStableKey(payload)
-  const existing = await workflows.findByKey(idempotencyKey)
-  if (existing) return existing
-
-  const workflow = await workflows.create({ ...payload, idempotencyKey })
-  await events.publish("workflow.created", workflow)
-
-  return workflow
-}`
-  }
 }

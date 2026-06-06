@@ -1,46 +1,57 @@
 "use client"
 
+import Link from 'next/link'
 import { motion } from '../lib/motion'
 import motionTheme from '../lib/motionTheme'
 import type { BlogPost } from '../data/blog'
-import { formatPublishDate, getBlogPostPath } from '../lib/blog'
+import { getBlogPostPath } from '../lib/blog'
 import BlogCover from './BlogCover'
-import ButtonLink from './ButtonLink'
+import { ArticleMeta, ArticleTags } from './BlogCard'
 
 export default function FeaturedBlogCard({ post }: { post: BlogPost }) {
   return (
     <motion.article
       variants={motionTheme.variants.fadeUp()}
       initial="hidden"
-      whileInView="show"
-      viewport={{ once: true, amount: 0.2 }}
-      className="grid gap-5 overflow-hidden rounded-[32px] border border-white/10 bg-white/5 p-4 shadow-[0_50px_140px_-95px_rgba(124,58,237,0.72)] backdrop-blur-2xl lg:grid-cols-[1.08fr_0.92fr]"
+      animate="show"
+      className="relative overflow-hidden border-y border-white/10 py-8 sm:py-10"
     >
-      <BlogCover post={post} featured />
-      <div className="flex flex-col justify-between p-2 sm:p-4">
-        <div>
-          <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.2em] text-slate-400">
-            <span className="rounded-full bg-secondary/15 px-3 py-1 text-secondary">Featured insight</span>
-            <span>{formatPublishDate(post.publishDate)}</span>
-            <span className="text-slate-600">/</span>
-            <span>{post.readingMinutes} min read</span>
-          </div>
-          <h3 className="mt-5 text-2xl sm:text-3xl font-display font-semibold leading-tight text-white">{post.title}</h3>
-          <p className="mt-4 text-sm sm:text-base leading-7 text-slate-300">{post.summary}</p>
-          <div className="mt-5 flex flex-wrap gap-2">
-            {post.tags.map(tag => (
-              <span key={tag} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-200">{tag}</span>
-            ))}
-          </div>
-        </div>
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-secondary/70 to-transparent" />
+      <div className="grid gap-7 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
+        <Link href={getBlogPostPath(post)} className="block" aria-label={`Read featured article: ${post.title}`}>
+          <BlogCover post={post} featured />
+        </Link>
 
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-          <ButtonLink href={getBlogPostPath(post)} variant="gradient">
-            Read featured article
-          </ButtonLink>
-          <a href="#latest-insights" className="inline-flex items-center justify-center rounded-3xl border border-white/10 bg-white/5 px-5 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white transition hover:bg-white/10">
-            Explore latest
-          </a>
+        <div className="lg:pl-4">
+          <div className="inline-flex rounded-full border border-secondary/20 bg-secondary/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-secondary">
+            Featured Note
+          </div>
+          <div className="mt-5">
+            <ArticleMeta post={post} />
+          </div>
+          <Link href={getBlogPostPath(post)} className="block">
+            <h2 className="mt-5 max-w-3xl text-4xl font-display font-semibold leading-tight text-white transition hover:text-secondary sm:text-6xl">
+              {post.title}
+            </h2>
+          </Link>
+          <p className="mt-6 max-w-2xl text-xl leading-9 text-slate-100">{post.hook}</p>
+          <p className="mt-5 max-w-2xl text-base leading-8 text-slate-400">{post.summary}</p>
+          <ArticleTags tags={post.tags} limit={6} />
+
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Link
+              href={getBlogPostPath(post)}
+              className="inline-flex h-12 items-center justify-center rounded-full bg-gradient-to-r from-secondary to-accent px-6 text-sm font-semibold text-black shadow-[0_24px_90px_-48px_rgba(236,72,153,0.7)] transition hover:-translate-y-0.5"
+            >
+              Read the story
+            </Link>
+            <a
+              href="#latest-notes"
+              className="inline-flex h-12 items-center justify-center rounded-full border border-white/10 bg-white/5 px-6 text-sm font-semibold text-white transition hover:border-secondary/60 hover:bg-white/10"
+            >
+              Browse notes
+            </a>
+          </div>
         </div>
       </div>
     </motion.article>

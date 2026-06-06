@@ -6,7 +6,7 @@ export function absoluteUrl(path = '/') {
   return `${SITE_URL}${normalizedPath}`
 }
 
-export function getOgImageUrl(title: string, category = 'Engineering Insights') {
+export function getOgImageUrl(title: string, category = 'Engineering Notes') {
   const params = new URLSearchParams({ title, category })
   return absoluteUrl(`/og?${params.toString()}`)
 }
