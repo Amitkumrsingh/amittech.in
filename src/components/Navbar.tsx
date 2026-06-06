@@ -18,6 +18,10 @@ const NAV_LINKS = [
   { label: 'Contact', href: '/#contact', section: 'contact' }
 ]
 
+const HOME_SECTION_IDS = NAV_LINKS
+  .map(link => link.section)
+  .filter(section => section !== 'blog')
+
 export default function Navbar() {
   const pathname = usePathname()
   const [activeSection, setActiveSection] = useState('hero')
@@ -31,25 +35,42 @@ export default function Navbar() {
       return
     }
 
-    const sections = NAV_LINKS
-      .map(link => link.section)
-      .filter(section => section !== 'blog')
+    let frame = 0
+
+    const getSections = () => HOME_SECTION_IDS
       .map(section => document.getElementById(section))
       .filter(Boolean) as HTMLElement[]
 
-    const observer = new IntersectionObserver(
-      entries => {
-        const visible = entries
-          .filter(entry => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0]
+    const updateActiveSection = () => {
+      const sections = getSections()
+      if (sections.length === 0) return
 
-        if (visible?.target.id) setActiveSection(visible.target.id)
-      },
-      { rootMargin: '-18% 0px -62% 0px', threshold: [0.12, 0.28, 0.5] }
-    )
+      const activationPoint = window.scrollY + Math.min(window.innerHeight * 0.38, 320)
+      const active = sections.reduce((current, section) => {
+        return section.offsetTop <= activationPoint ? section.id : current
+      }, sections[0].id)
 
-    sections.forEach(section => observer.observe(section))
-    return () => observer.disconnect()
+      const bottomReached = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2
+      setActiveSection(bottomReached ? sections[sections.length - 1].id : active)
+    }
+
+    const scheduleUpdate = () => {
+      if (frame) return
+      frame = window.requestAnimationFrame(() => {
+        frame = 0
+        updateActiveSection()
+      })
+    }
+
+    updateActiveSection()
+    window.addEventListener('scroll', scheduleUpdate, { passive: true })
+    window.addEventListener('resize', scheduleUpdate)
+
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', scheduleUpdate)
+      window.removeEventListener('resize', scheduleUpdate)
+    }
   }, [pathname])
 
   return (
@@ -62,7 +83,7 @@ export default function Navbar() {
 
         <div className="hidden items-center gap-1 lg:flex">
           {NAV_LINKS.map(link => (
-            <NavLink key={link.label} link={link} active={activeSection === link.section} />
+            <NavLink key={link.label} link={link} active={activeSection === link.section} onSelect={() => setActiveSection(link.section)} />
           ))}
         </div>
 
@@ -98,7 +119,10 @@ export default function Navbar() {
                 key={link.label}
                 href={link.href}
                 className={`rounded-2xl px-4 py-3 text-sm font-semibold transition ${activeSection === link.section ? 'bg-secondary/15 text-secondary' : 'text-slate-200 hover:bg-white/5'}`}
-                onClick={() => setOpen(false)}
+                onClick={() => {
+                  setActiveSection(link.section)
+                  setOpen(false)
+                }}
               >
                 {link.label}
               </Link>
@@ -120,14 +144,17 @@ export default function Navbar() {
 
 function NavLink({
   link,
-  active
+  active,
+  onSelect
 }: {
   link: typeof NAV_LINKS[number]
   active: boolean
+  onSelect: () => void
 }) {
   return (
     <Link
       href={link.href}
+      onClick={onSelect}
       className={`rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition ${active ? 'bg-secondary/15 text-secondary' : 'text-slate-300 hover:bg-white/5 hover:text-white'}`}
     >
       {link.label}
