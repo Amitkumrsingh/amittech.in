@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
+import { incrementDownloadCount } from '../../lib/downloadCounter'
 
 async function forwardToGA4(body: any) {
   const measurementId = process.env.GA4_MEASUREMENT_ID
@@ -73,6 +74,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== 'POST') return res.status(405).json({ ok: false })
 
   const body = req.body || {}
+  const isResumeDownload = body.event === 'resume_download' || Boolean(body.file)
 
   // Log locally
   // eslint-disable-next-line no-console
@@ -92,27 +94,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // eslint-disable-next-line no-console
     console.warn('analytics forward failed', err)
   }
-  // Increment server-side persistent counter (data/downloads.json)
-  try {
-    const { promises: fs } = await import('fs')
-    const { join } = await import('path')
-    const DATA_PATH = join(process.cwd(), 'data')
-    const FILE = join(DATA_PATH, 'downloads.json')
-    await fs.mkdir(DATA_PATH, { recursive: true })
-    let count = 0
+  let counter = null
+  if (isResumeDownload) {
     try {
-      const raw = await fs.readFile(FILE, 'utf-8')
-      const json = JSON.parse(raw)
-      count = Number(json.downloads || 0)
+      counter = await incrementDownloadCount()
     } catch (e) {
-      count = 0
+      // eslint-disable-next-line no-console
+      console.warn('download counter update failed', e)
     }
-    count = count + 1
-    await fs.writeFile(FILE, JSON.stringify({ downloads: count }, null, 2), 'utf-8')
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.warn('download counter update failed', e)
   }
 
-  res.status(200).json({ ok: true })
+  res.setHeader('Cache-Control', 'no-store, max-age=0')
+  res.status(200).json({ ok: true, ...counter })
 }

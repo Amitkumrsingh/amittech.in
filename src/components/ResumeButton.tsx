@@ -18,7 +18,7 @@ export default function ResumeButton({ href, filename, label = 'Download Resume'
     e.preventDefault()
     setLoading(true)
 
-    const payload = { file: filename || href, ts: new Date().toISOString() }
+    const payload = { event: 'resume_download', file: filename || href, ts: new Date().toISOString() }
 
     // Client-side forwarding to public analytics providers (only using NEXT_PUBLIC keys)
     try {
@@ -46,18 +46,26 @@ export default function ResumeButton({ href, filename, label = 'Download Resume'
       console.warn('client analytics failed', err)
     }
 
-    // Fire-and-forget analytics event to server (safe backup)
-    try {
-      fetch('/api/track-download', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      }).catch(() => {})
-    } catch (err) {
-      console.warn('track-download failed', err)
+    const trackDownload = async () => {
+      try {
+        const res = await fetch('/api/track-download', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          cache: 'no-store'
+        })
+
+        if (!res.ok) return null
+        return await res.json()
+      } catch (err) {
+        console.warn('track-download failed', err)
+        return null
+      }
     }
 
-    // Trigger the download
+    const tracking = trackDownload()
+
+    // Trigger the download while still inside the click interaction.
     const a = document.createElement('a')
     a.href = href
     if (filename) a.download = filename
@@ -65,12 +73,15 @@ export default function ResumeButton({ href, filename, label = 'Download Resume'
     document.body.appendChild(a)
     a.click()
     a.remove()
-    
-    // Notify local UI counters to refresh and track for A/B testing
+
     try {
-      window.dispatchEvent(new CustomEvent('resume:downloaded'))
+      const result = await tracking
+      window.dispatchEvent(new CustomEvent('resume:downloaded', {
+        detail: typeof result?.downloads === 'number' ? { downloads: Number(result.downloads), storage: result.storage } : undefined
+      }))
       recordExperimentMetric('motion_engagement', 'resumeDownloaded', true)
     } catch (e) {}
+
     setLoading(false)
   }
 
