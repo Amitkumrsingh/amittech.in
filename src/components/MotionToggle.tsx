@@ -13,7 +13,7 @@ export default function MotionToggle() {
   }
 
   return (
-    <div className="fixed right-4 top-4 z-[999]">
+    <div className="fixed right-4 top-4 z-[999] hidden lg:block">
       <button
         onClick={handleToggle}
         aria-pressed={!enabled}
