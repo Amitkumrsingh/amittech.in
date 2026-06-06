@@ -46,6 +46,20 @@ export function getBlogPostUrl(post: BlogPost) {
   return absoluteUrl(getBlogPostPath(post))
 }
 
+export function getRelatedPosts(post: BlogPost, limit = 3) {
+  return getBlogPosts()
+    .filter(candidate => candidate.slug !== post.slug)
+    .sort((a, b) => {
+      const categoryScore = Number(b.category === post.category) - Number(a.category === post.category)
+      if (categoryScore !== 0) return categoryScore
+
+      const aTagScore = a.tags.filter(tag => post.tags.includes(tag)).length
+      const bTagScore = b.tags.filter(tag => post.tags.includes(tag)).length
+      return bTagScore - aTagScore
+    })
+    .slice(0, limit)
+}
+
 export function formatPublishDate(date: string) {
   return new Intl.DateTimeFormat('en', {
     month: 'short',

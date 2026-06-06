@@ -8,6 +8,7 @@
 }
 
 html,body,#root{height:100%;}
+html{scroll-behavior:smooth; scroll-padding-top: 96px;}
 
 :root{--font-sans: var(--font-inter); --font-display: var(--font-sora); --font-mono: var(--font-jet)}
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion } from '../lib/motion'
 import motionTheme from '../lib/motionTheme'
 import { getBlogCategories, getFeaturedPost, getLatestPosts } from '../lib/blog'
@@ -10,6 +10,7 @@ import FeaturedBlogCard from './FeaturedBlogCard'
 import BlogCard from './BlogCard'
 
 const ALL_CATEGORIES = 'All Topics'
+const INITIAL_VISIBLE_POSTS = 9
 
 type CategoryFilter = typeof ALL_CATEGORIES | BlogCategory
 
@@ -19,10 +20,18 @@ export default function BlogSection() {
   const categories = getBlogCategories()
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>(ALL_CATEGORIES)
   const [query, setQuery] = useState('')
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_POSTS)
 
   const filteredPosts = useMemo(() => {
     return filterPosts(latestPosts, activeCategory, query)
   }, [activeCategory, latestPosts, query])
+
+  const visiblePosts = filteredPosts.slice(0, visibleCount)
+  const hasMore = visibleCount < filteredPosts.length
+
+  useEffect(() => {
+    setVisibleCount(INITIAL_VISIBLE_POSTS)
+  }, [activeCategory, query])
 
   return (
     <section id="blog" className="mt-16">
@@ -64,10 +73,22 @@ export default function BlogSection() {
           initial="hidden"
           animate="show"
         >
-          {filteredPosts.map((post, index) => (
+          {visiblePosts.map((post, index) => (
             <BlogCard key={post.slug} post={post} index={index} />
           ))}
         </motion.div>
+
+        {hasMore ? (
+          <div className="mt-6 flex justify-center">
+            <button
+              type="button"
+              onClick={() => setVisibleCount(count => count + 6)}
+              className="rounded-full border border-white/10 bg-white/5 px-6 py-3 text-sm font-semibold text-white transition hover:border-secondary/70 hover:bg-white/10"
+            >
+              Load more insights
+            </button>
+          </div>
+        ) : null}
 
         {filteredPosts.length === 0 ? (
           <div className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-6 text-sm text-slate-300">
