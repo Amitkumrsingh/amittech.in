@@ -39,6 +39,10 @@ test.describe('portfolio smoke flow', () => {
     await page.goto('/#contact', { waitUntil: 'networkidle' })
     await expect(page.getByRole('link', { name: 'Email me' })).toBeVisible()
 
+    await page.goto('/admin', { waitUntil: 'networkidle' })
+    await expect(page.getByRole('heading', { name: 'CMS Command Center' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Sign in to manage posts.' })).toBeVisible()
+
     const downloadCount = await request.get('/api/download-count')
     expect(downloadCount.ok()).toBe(true)
     expect(downloadCount.headers()['cache-control']).toContain('no-store')

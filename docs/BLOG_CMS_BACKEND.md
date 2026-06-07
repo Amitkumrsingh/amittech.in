@@ -49,6 +49,18 @@ npm run db:migrate
 
 ## Auth Flow
 
+The dashboard UI is available at:
+
+```text
+/admin
+```
+
+It loads the Google client ID through:
+
+```http
+GET /api/auth/config
+```
+
 The frontend should use Google Identity Services to get a Google ID token, then call:
 
 ```http
