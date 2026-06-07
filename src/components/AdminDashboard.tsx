@@ -218,15 +218,17 @@ export default function AdminDashboard() {
   }, [])
 
   const loadPosts = useCallback(async () => {
-    if (!isSuperAdmin) return
+    if (!user) return
     setLoadingPosts(true)
     setError('')
-    const params = new URLSearchParams({ pageSize: '50', includeDeleted: 'true' })
+    const params = new URLSearchParams({ pageSize: '50' })
+    if (isSuperAdmin) params.set('includeDeleted', 'true')
     if (statusFilter !== 'ALL') params.set('status', statusFilter)
     if (search.trim()) params.set('search', search.trim())
 
     try {
-      const data = await requestJson<{ items: CmsPost[]; pagination: { total: number } }>(`/api/admin/posts?${params.toString()}`)
+      const endpoint = isSuperAdmin ? '/api/admin/posts' : '/api/my/posts'
+      const data = await requestJson<{ items: CmsPost[]; pagination: { total: number } }>(`${endpoint}?${params.toString()}`)
       setPosts(data.items)
       setForm(current => {
         if (!current.id) return current
@@ -238,7 +240,7 @@ export default function AdminDashboard() {
     } finally {
       setLoadingPosts(false)
     }
-  }, [isSuperAdmin, search, statusFilter])
+  }, [isSuperAdmin, search, statusFilter, user])
 
   const loadMedia = useCallback(async () => {
     if (!user) return
@@ -352,7 +354,7 @@ export default function AdminDashboard() {
       metaTitle: compact(form.metaTitle),
       metaDescription: compact(form.metaDescription),
       ogImage: compact(form.ogImage),
-      isFeatured: form.isFeatured
+      ...(isSuperAdmin ? { isFeatured: form.isFeatured } : {})
     }
   }
 
@@ -369,7 +371,7 @@ export default function AdminDashboard() {
     try {
       const payload = getPayload(nextStatus)
       const data = form.id
-        ? await requestJson<{ post: CmsPost }>(`/api/admin/posts/${form.id}`, { method: 'PUT', body: JSON.stringify(payload) })
+        ? await requestJson<{ post: CmsPost }>(`${isSuperAdmin ? '/api/admin/posts' : '/api/posts'}/${form.id}`, { method: 'PUT', body: JSON.stringify(payload) })
         : await requestJson<{ post: CmsPost }>('/api/posts', { method: 'POST', body: JSON.stringify(payload) })
 
       setForm(postToForm(data.post))
@@ -389,10 +391,11 @@ export default function AdminDashboard() {
     setMessage('')
     try {
       if (action === 'delete') {
-        await requestJson<{ post: CmsPost }>(`/api/admin/posts/${post.id}`, { method: 'DELETE' })
+        await requestJson<{ post: CmsPost }>(`${isSuperAdmin ? '/api/admin/posts' : '/api/posts'}/${post.id}`, { method: 'DELETE' })
         setForm(emptyForm)
         setMessage('Post deleted')
       } else if (action === 'feature') {
+        if (!isSuperAdmin) throw new Error('Only super admins can feature posts')
         const data = await requestJson<{ post: CmsPost }>(`/api/admin/posts/${post.id}/feature`, {
           method: 'PATCH',
           body: JSON.stringify({ isFeatured: !post.isFeatured })
@@ -490,7 +493,7 @@ export default function AdminDashboard() {
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Authentication</p>
             <h2 className="mt-4 font-display text-3xl font-semibold text-white">Sign in to manage posts.</h2>
             <p className="mt-4 max-w-xl text-sm leading-7 text-slate-300">
-              Use the Google account listed as a super admin for this CMS.
+              Use Google to write and manage your posts. Super admins can manage all content.
             </p>
             <div className="mt-6 min-h-11">
               {googleClientId ? <div ref={googleButtonRef} /> : <p className="text-sm text-accent">Google OAuth is not configured.</p>}
@@ -500,16 +503,6 @@ export default function AdminDashboard() {
           </Panel>
           <Panel className="lg:col-span-7">
             <EditorialEmptyState />
-          </Panel>
-        </DashboardShell>
-      ) : !isSuperAdmin ? (
-        <DashboardShell>
-          <Panel className="lg:col-span-12">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-accent">Access blocked</p>
-            <h2 className="mt-4 font-display text-3xl font-semibold text-white">This Google account is not a super admin.</h2>
-            <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300">
-              Signed in as {user.email}. Add this email to `SUPER_ADMIN_EMAILS` in Vercel if it should manage the CMS.
-            </p>
           </Panel>
         </DashboardShell>
       ) : (
@@ -523,7 +516,7 @@ export default function AdminDashboard() {
                   <p className="text-sm text-slate-400">{user.email}</p>
                 </div>
                 <span className="rounded-full bg-secondary/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-secondary">
-                  {user.role.replace('_', ' ')}
+                  {isSuperAdmin ? 'SUPER ADMIN' : 'WRITER'}
                 </span>
               </div>
             </Panel>
@@ -629,9 +622,11 @@ export default function AdminDashboard() {
                       <ActionButton onClick={() => runAction('archive')} disabled={saving}>
                         Archive
                       </ActionButton>
-                      <ActionButton onClick={() => runAction('feature')} disabled={saving}>
-                        {selectedPost.isFeatured ? 'Unfeature' : 'Feature'}
-                      </ActionButton>
+                      {isSuperAdmin ? (
+                        <ActionButton onClick={() => runAction('feature')} disabled={saving}>
+                          {selectedPost.isFeatured ? 'Unfeature' : 'Feature'}
+                        </ActionButton>
+                      ) : null}
                     </>
                   ) : null}
                 </div>
@@ -700,15 +695,17 @@ export default function AdminDashboard() {
                 <textarea value={form.metaDescription} onChange={event => updateForm('metaDescription', event.target.value)} rows={2} className={textareaClassName} />
               </Field>
 
-              <label className="mt-4 flex items-center gap-3 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={form.isFeatured}
-                  onChange={event => updateForm('isFeatured', event.target.checked)}
-                  className="h-4 w-4 accent-cyan-400"
-                />
-                Featured article
-              </label>
+              {isSuperAdmin ? (
+                <label className="mt-4 flex items-center gap-3 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={form.isFeatured}
+                    onChange={event => updateForm('isFeatured', event.target.checked)}
+                    className="h-4 w-4 accent-cyan-400"
+                  />
+                  Featured article
+                </label>
+              ) : null}
 
               <div className="mt-5 flex flex-wrap justify-between gap-3 border-t border-white/10 pt-5">
                 <div className="flex flex-wrap gap-2">
@@ -904,7 +901,7 @@ function EditorialEmptyState() {
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-secondary">Editorial OS</p>
         <h2 className="mt-4 font-display text-3xl font-semibold text-white">Turn production lessons into readable notes.</h2>
         <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-slate-400">
-          The dashboard opens after Google login and super-admin verification.
+          The dashboard opens after Google login and session verification.
         </p>
       </div>
     </div>
