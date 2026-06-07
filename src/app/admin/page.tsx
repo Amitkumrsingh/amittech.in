@@ -3,7 +3,7 @@ import AdminDashboard from '../../components/AdminDashboard'
 import { absoluteUrl, getOgImageUrl, SITE_NAME } from '../../lib/site'
 
 export const metadata: Metadata = {
-  title: 'Admin Dashboard - Amit Kumar Singh',
+  title: 'Admin Dashboard',
   description: 'Private CMS dashboard for publishing engineering notes on Amit Kumar Singh portfolio.',
   alternates: {
     canonical: absoluteUrl('/admin')

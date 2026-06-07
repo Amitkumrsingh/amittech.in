@@ -8,7 +8,7 @@ import BlogCover from '../../../components/BlogCover'
 import JsonLd from '../../../components/JsonLd'
 import { getArticleTocItems } from '../../../features/blog'
 import { getAllBlogPosts, getArticleSchema, getBlogPostBySlug, getBlogPostPath, getBlogPosts, getBlogPostUrl, getRelatedPosts } from '../../../lib/blog'
-import { absoluteUrl, getOgImageUrl, SITE_NAME } from '../../../lib/site'
+import { SEO_KEYWORDS, absoluteUrl, getOgImageUrl, SITE_NAME } from '../../../lib/site'
 
 type ArticlePageProps = {
   params: {
@@ -30,8 +30,9 @@ export async function generateMetadata({ params }: ArticlePageProps): Promise<Me
   const ogImage = post.coverImage || getOgImageUrl(post.title, post.category)
 
   return {
-    title: `${post.title} - Amit Kumar Singh`,
+    title: post.title,
     description: post.summary,
+    keywords: [...SEO_KEYWORDS, post.category, ...post.tags],
     alternates: {
       canonical: url
     },

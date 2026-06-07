@@ -2,13 +2,14 @@ import type { Metadata } from 'next'
 import BlogSection from '../../components/BlogSection'
 import JsonLd from '../../components/JsonLd'
 import { getAllBlogPosts, getBlogCategoriesForPosts, getBlogSchema } from '../../lib/blog'
-import { absoluteUrl, getOgImageUrl, SITE_NAME } from '../../lib/site'
+import { SEO_KEYWORDS, absoluteUrl, getOgImageUrl, SITE_NAME } from '../../lib/site'
 
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Engineering Notes - Amit Kumar Singh',
+  title: 'Engineering Notes',
   description: 'Story-driven notes on backend engineering, distributed systems, scaling, AI, and lessons learned from building production systems.',
+  keywords: [...SEO_KEYWORDS, 'Engineering Blog', 'Backend Engineering Blog', 'Kafka Production Lessons', 'System Design Blog'],
   alternates: {
     canonical: absoluteUrl('/blog'),
     types: {

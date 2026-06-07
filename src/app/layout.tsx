@@ -1,37 +1,89 @@
 import '../styles/globals.css'
+import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
 import LayoutWrapper from '../components/LayoutWrapper'
-import { getOgImageUrl, SITE_NAME, SITE_URL } from '../lib/site'
+import { getOgImageUrl, SEO_KEYWORDS, SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL, absoluteUrl } from '../lib/site'
 
-export const metadata = {
+export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: 'Amit Kumar Singh — Software Developer',
-  description: 'Amit Kumar Singh is a product-minded Software Developer focused on distributed systems, event-driven architecture, and scalable payments platforms.',
+  applicationName: 'AmitTech',
+  title: {
+    default: SITE_TITLE,
+    template: '%s | Amit Kumar Singh'
+  },
+  description: SITE_DESCRIPTION,
+  keywords: SEO_KEYWORDS,
+  authors: [{ name: SITE_NAME, url: SITE_URL }],
+  creator: SITE_NAME,
+  publisher: SITE_NAME,
+  category: 'technology',
+  alternates: {
+    canonical: absoluteUrl('/'),
+    types: {
+      'application/rss+xml': absoluteUrl('/rss.xml')
+    }
+  },
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/icon', type: 'image/png', sizes: '32x32' }
+    ],
+    apple: [{ url: '/apple-icon', sizes: '180x180', type: 'image/png' }]
+  },
+  manifest: '/manifest.webmanifest',
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+      'max-video-preview': -1
+    }
+  },
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+  },
   openGraph: {
-    title: 'Amit Kumar Singh — Software Developer',
-    description: 'Backend engineer focused on distributed systems, Kafka, cloud-native platforms, payments, AI systems, and system design.',
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
     url: SITE_URL,
     siteName: SITE_NAME,
+    locale: 'en_US',
     type: 'website',
     images: [
       {
-        url: getOgImageUrl('Amit Kumar Singh', 'Backend Engineer')
+        url: getOgImageUrl('Amit Kumar Singh', 'Backend Engineer'),
+        width: 1200,
+        height: 630,
+        alt: 'Amit Kumar Singh - Backend Engineer'
       }
     ]
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Amit Kumar Singh — Software Developer',
-    description: 'Backend engineer focused on distributed systems, Kafka, cloud-native platforms, payments, AI systems, and system design.',
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
     images: [getOgImageUrl('Amit Kumar Singh', 'Backend Engineer')]
+  },
+  other: {
+    'profile:first_name': 'Amit',
+    'profile:last_name': 'Kumar Singh'
   }
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: '#0A0A0F',
+  colorScheme: 'dark'
 }
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
-        <meta name="viewport" content="width=device-width,initial-scale=1" />
         {/* Preload self-hosted fonts (files created by scripts/download-fonts.sh) */}
         <link rel="preload" href="/fonts/xMQOuFFYT72X5wkB_18qmnndmSeMmX-K.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
         <link rel="preload" href="/fonts/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfMZg.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />

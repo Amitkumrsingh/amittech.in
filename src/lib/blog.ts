@@ -1,6 +1,6 @@
 import { BLOG_POSTS } from '../data/blog'
 import { BLOG_CATEGORIES, type BlogCategory, type BlogPost } from '../features/blog'
-import { absoluteUrl, SITE_NAME, SITE_URL } from './site'
+import { absoluteUrl, getOgImageUrl, SITE_NAME, SITE_URL } from './site'
 
 type BlogSourceAdapter = {
   listPosts: () => readonly BlogPost[]
@@ -139,6 +139,7 @@ export function getBlogSchema(posts = getBlogPosts()) {
       keywords: post.tags.join(', '),
       description: post.hook,
       timeRequired: `PT${post.readingMinutes}M`,
+      image: post.coverImage || getOgImageUrl(post.title, post.category),
       author: {
         '@type': 'Person',
         name: post.authorName || SITE_NAME
@@ -151,6 +152,10 @@ export function getArticleSchema(post: BlogPost) {
   return {
     '@context': 'https://schema.org',
     '@type': 'TechArticle',
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': getBlogPostUrl(post)
+    },
     headline: post.title,
     url: getBlogPostUrl(post),
     datePublished: post.publishDate,
@@ -162,13 +167,15 @@ export function getArticleSchema(post: BlogPost) {
     },
     publisher: {
       '@type': 'Person',
-      name: SITE_NAME
+      name: SITE_NAME,
+      url: SITE_URL
     },
     articleSection: post.category,
     keywords: post.tags.join(', '),
     description: post.hook,
     timeRequired: `PT${post.readingMinutes}M`,
-    image: post.coverImage || undefined
+    isAccessibleForFree: true,
+    image: post.coverImage || getOgImageUrl(post.title, post.category)
   }
 }
 
