@@ -6,6 +6,7 @@ import { motion } from '../lib/motion'
 import motionTheme from '../lib/motionTheme'
 import { cn } from '../lib/classes'
 import MicroButton from './MicroButton'
+import RichTextEditor from './RichTextEditor'
 
 type Role = 'USER' | 'SUPER_ADMIN'
 type UserStatus = 'ACTIVE' | 'INACTIVE' | 'BANNED'
@@ -424,21 +425,42 @@ export default function AdminDashboard() {
     setMessage('Signed out')
   }
 
+  async function uploadMedia(file: File) {
+    const body = new FormData()
+    body.append('file', file)
+    if (form.id) body.append('postId', form.id)
+    const data = await requestJson<{ media: MediaItem }>('/api/media/upload', { method: 'POST', body })
+    setMedia(current => [data.media, ...current])
+    return data.media.url
+  }
+
   async function uploadCover(file?: File) {
     if (!file) return
     setUploading(true)
     setError('')
     setMessage('')
     try {
-      const body = new FormData()
-      body.append('file', file)
-      if (form.id) body.append('postId', form.id)
-      const data = await requestJson<{ media: MediaItem }>('/api/media/upload', { method: 'POST', body })
-      updateForm('coverImage', data.media.url)
-      setMedia(current => [data.media, ...current])
+      const url = await uploadMedia(file)
+      updateForm('coverImage', url)
       setMessage('Cover uploaded')
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Upload failed')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  async function uploadArticleImage(file: File) {
+    setUploading(true)
+    setError('')
+    setMessage('')
+    try {
+      const url = await uploadMedia(file)
+      setMessage('Image inserted')
+      return url
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Upload failed')
+      throw requestError
     } finally {
       setUploading(false)
     }
@@ -673,15 +695,13 @@ export default function AdminDashboard() {
                 <textarea value={form.excerpt} onChange={event => updateForm('excerpt', event.target.value)} rows={3} className={textareaClassName} />
               </Field>
 
-              <Field label="Article HTML" className="mt-4">
-                <textarea
+              <FieldGroup label="Article body" className="mt-4">
+                <RichTextEditor
                   value={form.html}
-                  onChange={event => updateForm('html', event.target.value)}
-                  rows={12}
-                  placeholder="<p>Start with the production problem. Then show the tradeoff.</p>"
-                  className={cn(textareaClassName, 'font-mono text-xs leading-6')}
+                  onChange={value => updateForm('html', value)}
+                  onUploadImage={uploadArticleImage}
                 />
-              </Field>
+              </FieldGroup>
 
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <Field label="Meta title">
@@ -749,7 +769,7 @@ export default function AdminDashboard() {
                   <h3 className="mt-3 font-display text-3xl font-semibold leading-tight text-white">{form.title || 'Untitled article'}</h3>
                   <p className="mt-4 text-base leading-8 text-slate-300">{form.excerpt || 'The hook should name the real engineering tension.'}</p>
                   <div
-                    className="mt-5 space-y-4 text-sm leading-7 text-slate-300 [&_a]:text-secondary [&_blockquote]:border-l-2 [&_blockquote]:border-secondary [&_blockquote]:pl-4 [&_code]:rounded [&_code]:bg-white/10 [&_code]:px-1.5 [&_h2]:font-display [&_h2]:text-2xl [&_h2]:text-white [&_li]:ml-5 [&_li]:list-disc"
+                    className="cms-rich-content mt-5 space-y-4 text-sm leading-7 text-slate-300"
                     dangerouslySetInnerHTML={{ __html: form.html || '<p>Write the lesson like a senior engineer talking to another engineer.</p>' }}
                   />
                 </div>
@@ -789,6 +809,15 @@ function Field({ label, children, className }: { label: string; children: React.
       <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</span>
       {children}
     </label>
+  )
+}
+
+function FieldGroup({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
+  return (
+    <div className={cn('block', className)}>
+      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      {children}
+    </div>
   )
 }
 

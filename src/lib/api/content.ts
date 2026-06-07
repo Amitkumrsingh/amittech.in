@@ -1,6 +1,8 @@
 import sanitizeHtml from 'sanitize-html'
 
 const WORDS_PER_MINUTE = 220
+const safeColorPattern = /^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/
+const safeRgbPattern = /^rgba?\(\s*(?:\d{1,3}\s*,\s*){2}\d{1,3}(?:\s*,\s*(?:0|1|0?\.\d+))?\s*\)$/
 
 const sanitizeOptions: sanitizeHtml.IOptions = {
   allowedTags: [
@@ -13,6 +15,9 @@ const sanitizeOptions: sanitizeHtml.IOptions = {
     'h6',
     'strong',
     'em',
+    'u',
+    's',
+    'mark',
     'code',
     'pre',
     'blockquote',
@@ -39,7 +44,15 @@ const sanitizeOptions: sanitizeHtml.IOptions = {
     a: ['href', 'name', 'target', 'rel'],
     img: ['src', 'alt', 'title', 'width', 'height', 'loading'],
     iframe: ['src', 'width', 'height', 'allow', 'allowfullscreen', 'title'],
-    '*': ['class']
+    '*': ['class', 'style']
+  },
+  allowedStyles: {
+    '*': {
+      color: [safeColorPattern, safeRgbPattern],
+      'background-color': [safeColorPattern, safeRgbPattern],
+      'font-size': [/^(0\.875|1\.125|1\.375)rem$/],
+      'text-align': [/^(left|center|right|justify)$/]
+    }
   },
   allowedIframeHostnames: ['www.youtube.com', 'youtube.com', 'player.vimeo.com'],
   transformTags: {

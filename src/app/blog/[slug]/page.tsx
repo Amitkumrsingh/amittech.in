@@ -208,7 +208,7 @@ function CmsArticleBody({ html }: { html?: string | null }) {
 
   return (
     <div
-      className="mt-10 space-y-6 text-lg leading-9 text-slate-300 [&_a]:font-semibold [&_a]:text-secondary [&_blockquote]:border-l-2 [&_blockquote]:border-secondary/60 [&_blockquote]:bg-white/[0.03] [&_blockquote]:px-5 [&_blockquote]:py-4 [&_code]:rounded-md [&_code]:bg-white/10 [&_code]:px-1.5 [&_code]:py-0.5 [&_figure]:my-8 [&_h2]:scroll-mt-28 [&_h2]:pt-4 [&_h2]:font-display [&_h2]:text-3xl [&_h2]:font-semibold [&_h2]:leading-tight [&_h2]:text-white [&_h3]:scroll-mt-28 [&_h3]:pt-3 [&_h3]:font-display [&_h3]:text-2xl [&_h3]:font-semibold [&_h3]:text-white [&_hr]:border-white/10 [&_img]:rounded-[24px] [&_img]:border [&_img]:border-white/10 [&_img]:object-cover [&_li]:ml-6 [&_li]:list-disc [&_ol_li]:list-decimal [&_pre]:overflow-x-auto [&_pre]:rounded-2xl [&_pre]:border [&_pre]:border-white/10 [&_pre]:bg-black/35 [&_pre]:p-4 [&_table]:w-full [&_table]:overflow-hidden [&_table]:rounded-2xl [&_td]:border [&_td]:border-white/10 [&_td]:p-3 [&_th]:border [&_th]:border-white/10 [&_th]:p-3"
+      className="cms-rich-content mt-10 space-y-6 text-lg leading-9 text-slate-300 [&_figure]:my-8 [&_h2]:scroll-mt-28 [&_h2]:pt-4 [&_h3]:scroll-mt-28 [&_h3]:pt-3 [&_table]:w-full [&_table]:overflow-hidden [&_table]:rounded-2xl [&_td]:border [&_td]:border-white/10 [&_td]:p-3 [&_th]:border [&_th]:border-white/10 [&_th]:p-3"
       dangerouslySetInnerHTML={{ __html: html }}
     />
   )

@@ -119,9 +119,9 @@ Media:
 
 ## Rich Text Content
 
-APIs accept either JSON editor content through `content` or sanitized HTML through `html`.
+The `/admin` dashboard uses a TipTap rich-text editor, so writers do not need to hand-write article HTML. The editor saves sanitized HTML through the `html` field and keeps an HTML/source fallback for edge cases.
 
-Supported rich content includes headings, paragraphs, lists, code blocks, blockquotes, tables, images, YouTube/Vimeo iframes, links, and callout-style HTML blocks.
+Supported rich content includes headings, paragraphs, bold, italic, underline, lists, code blocks, blockquotes, tables, images, YouTube/Vimeo iframes, links, color, highlight, safe font sizes, alignment, and callout-style HTML blocks.
 
 ## Media Rules
 
