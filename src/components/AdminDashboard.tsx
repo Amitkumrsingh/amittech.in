@@ -700,6 +700,7 @@ export default function AdminDashboard() {
                   value={form.html}
                   onChange={value => updateForm('html', value)}
                   onUploadImage={uploadArticleImage}
+                  documentTitle={form.title || 'Untitled article'}
                 />
               </FieldGroup>
 

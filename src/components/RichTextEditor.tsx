@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Extension } from '@tiptap/core'
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { Extension, type Editor } from '@tiptap/core'
 import Color from '@tiptap/extension-color'
 import Highlight from '@tiptap/extension-highlight'
 import Image from '@tiptap/extension-image'
@@ -12,6 +12,7 @@ import { TextStyle } from '@tiptap/extension-text-style'
 import Underline from '@tiptap/extension-underline'
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
+import { createPortal } from 'react-dom'
 import { cn } from '../lib/classes'
 import MicroButton from './MicroButton'
 
@@ -19,11 +20,14 @@ type RichTextEditorProps = {
   value: string
   onChange: (html: string) => void
   onUploadImage?: (file: File) => Promise<string>
+  documentTitle?: string
 }
 
 type FontSizeOptions = {
   types: string[]
 }
+
+type EditorMode = 'compact' | 'focus'
 
 const FontSize = Extension.create<FontSizeOptions>({
   name: 'fontSize',
@@ -66,17 +70,19 @@ declare module '@tiptap/core' {
   }
 }
 
-const colorSwatches = ['#FFFFFF', '#CBD5E1', '#06B6D4', '#4EE1C1', '#EC4899', '#FFD56B']
-const highlightSwatches = ['#164E63', '#14532D', '#581C87', '#7F1D1D', '#713F12']
+const colorSwatches = ['#0F172A', '#475569', '#0891B2', '#0F766E', '#BE185D', '#B45309']
+const highlightSwatches = ['#BAE6FD', '#CCFBF1', '#FCE7F3', '#FEF3C7', '#E9D5FF']
 const fontSizes = [
-  { label: 'Body', value: '' },
+  { label: 'Normal', value: '' },
   { label: 'Small', value: '0.875rem' },
   { label: 'Lead', value: '1.125rem' },
   { label: 'Large', value: '1.375rem' }
 ]
 
-export default function RichTextEditor({ value, onChange, onUploadImage }: RichTextEditorProps) {
+export default function RichTextEditor({ value, onChange, onUploadImage, documentTitle }: RichTextEditorProps) {
   const [sourceMode, setSourceMode] = useState(false)
+  const [focusMode, setFocusMode] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -110,14 +116,14 @@ export default function RichTextEditor({ value, onChange, onUploadImage }: RichT
         types: ['heading', 'paragraph']
       }),
       Placeholder.configure({
-        placeholder: 'Write like a senior engineer explaining what actually happened in production...'
+        placeholder: 'Start with the production problem. Then write what changed, what broke, and what you learned.'
       })
     ],
     content: value || '',
     immediatelyRender: false,
     editorProps: {
       attributes: {
-        class: 'min-h-[420px] px-4 py-4 text-base leading-8 text-slate-200 outline-none'
+        class: 'text-base leading-8 outline-none'
       }
     },
     onUpdate({ editor }) {
@@ -126,11 +132,33 @@ export default function RichTextEditor({ value, onChange, onUploadImage }: RichT
   })
 
   useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
     if (!editor || sourceMode) return
     const currentHtml = editor.getHTML()
     const nextHtml = value || ''
     if (currentHtml !== nextHtml) editor.commands.setContent(nextHtml, { emitUpdate: false })
   }, [editor, sourceMode, value])
+
+  useEffect(() => {
+    if (!focusMode) return
+    const originalOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = originalOverflow
+    }
+  }, [focusMode])
+
+  useEffect(() => {
+    if (!focusMode) return
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setFocusMode(false)
+    }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [focusMode])
 
   function setLink() {
     if (!editor) return
@@ -165,15 +193,171 @@ export default function RichTextEditor({ value, onChange, onUploadImage }: RichT
 
   if (!editor) {
     return (
-      <div className="min-h-[480px] rounded-[24px] border border-white/10 bg-black/20 p-4 text-sm text-slate-400">
+      <div className="min-h-[560px] rounded-[24px] border border-white/10 bg-black/20 p-5 text-sm text-slate-400">
         Loading editor...
       </div>
     )
   }
 
+  const stats = getTextStats(editor.getText())
+  const title = documentTitle?.trim() || 'Untitled article'
+  const shell = (
+    <EditorShell
+      editor={editor}
+      mode={focusMode ? 'focus' : 'compact'}
+      sourceMode={sourceMode}
+      title={title}
+      stats={stats}
+      value={value}
+      uploading={uploading}
+      hasUploader={Boolean(onUploadImage)}
+      fileInputRef={fileInputRef}
+      onSourceChange={onChange}
+      onToggleSource={() => setSourceMode(current => !current)}
+      onToggleFocus={() => setFocusMode(current => !current)}
+      onSetLink={setLink}
+      onAddImageByUrl={addImageByUrl}
+      onUploadImage={uploadImage}
+    />
+  )
+
+  if (focusMode && mounted) {
+    return (
+      <>
+        <div className="grid min-h-[180px] place-items-center rounded-[24px] border border-cyan-400/20 bg-cyan-400/10 p-6 text-sm font-semibold text-cyan-100">
+          Focus editor is open. Press Escape or Done to return.
+        </div>
+        {createPortal(
+          <div className="fixed inset-0 z-[999] bg-[#0b0f14]" role="dialog" aria-modal="true" aria-label="Focused article editor">
+            {shell}
+          </div>,
+          document.body
+        )}
+      </>
+    )
+  }
+
+  return shell
+}
+
+function EditorShell({
+  editor,
+  mode,
+  sourceMode,
+  title,
+  stats,
+  value,
+  uploading,
+  hasUploader,
+  fileInputRef,
+  onSourceChange,
+  onToggleSource,
+  onToggleFocus,
+  onSetLink,
+  onAddImageByUrl,
+  onUploadImage
+}: {
+  editor: Editor
+  mode: EditorMode
+  sourceMode: boolean
+  title: string
+  stats: { words: number; characters: number }
+  value: string
+  uploading: boolean
+  hasUploader: boolean
+  fileInputRef: RefObject<HTMLInputElement | null>
+  onSourceChange: (html: string) => void
+  onToggleSource: () => void
+  onToggleFocus: () => void
+  onSetLink: () => void
+  onAddImageByUrl: () => void
+  onUploadImage: (file?: File) => Promise<void>
+}) {
   return (
-    <div className="overflow-hidden rounded-[24px] border border-white/10 bg-black/20">
-      <div className="flex flex-wrap items-center gap-2 border-b border-white/10 bg-white/[0.035] p-3">
+    <div
+      className={cn(
+        'overflow-hidden border border-white/10 bg-[#111827] shadow-[0_28px_120px_-80px_rgba(6,182,212,0.8)]',
+        mode === 'focus' ? 'flex h-screen flex-col rounded-none' : 'rounded-[24px]'
+      )}
+    >
+      <div className="border-b border-slate-200/80 bg-slate-50 text-slate-950">
+        <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-700">Document editor</p>
+            <h3 className="mt-1 truncate text-sm font-semibold text-slate-950 sm:text-base">{title}</h3>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+            <span className="rounded-full border border-slate-200 bg-white px-3 py-1">{stats.words} words</span>
+            <span className="rounded-full border border-slate-200 bg-white px-3 py-1">{stats.characters} chars</span>
+            <MicroButton
+              type="button"
+              onClick={onToggleFocus}
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-cyan-300 hover:text-cyan-700"
+            >
+              {mode === 'focus' ? 'Done' : 'Focus mode'}
+            </MicroButton>
+          </div>
+        </div>
+
+        <EditorToolbar
+          editor={editor}
+          sourceMode={sourceMode}
+          uploading={uploading}
+          hasUploader={hasUploader}
+          fileInputRef={fileInputRef}
+          onToggleSource={onToggleSource}
+          onSetLink={onSetLink}
+          onAddImageByUrl={onAddImageByUrl}
+          onUploadImage={onUploadImage}
+        />
+      </div>
+
+      <div className={cn('rich-editor-workspace', mode === 'focus' ? 'flex-1' : 'h-[620px]')}>
+        {sourceMode ? (
+          <textarea
+            value={value}
+            onChange={event => onSourceChange(event.target.value)}
+            rows={18}
+            className={cn('rich-editor-source', mode === 'focus' && 'rich-editor-source--focus')}
+            placeholder="<p>Raw HTML source</p>"
+          />
+        ) : (
+          <EditorContent editor={editor} className={cn('rich-editor', mode === 'focus' ? 'rich-editor--focus' : 'rich-editor--compact')} />
+        )}
+      </div>
+    </div>
+  )
+}
+
+function EditorToolbar({
+  editor,
+  sourceMode,
+  uploading,
+  hasUploader,
+  fileInputRef,
+  onToggleSource,
+  onSetLink,
+  onAddImageByUrl,
+  onUploadImage
+}: {
+  editor: Editor
+  sourceMode: boolean
+  uploading: boolean
+  hasUploader: boolean
+  fileInputRef: RefObject<HTMLInputElement | null>
+  onToggleSource: () => void
+  onSetLink: () => void
+  onAddImageByUrl: () => void
+  onUploadImage: (file?: File) => Promise<void>
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-t border-slate-200/80 px-3 py-2">
+      <ToolbarGroup>
+        <ToolbarButton label="Undo" disabled={sourceMode || !editor.can().undo()} onClick={() => editor.chain().focus().undo().run()}>Undo</ToolbarButton>
+        <ToolbarButton label="Redo" disabled={sourceMode || !editor.can().redo()} onClick={() => editor.chain().focus().redo().run()}>Redo</ToolbarButton>
+      </ToolbarGroup>
+
+      <ToolbarGroup>
         <select
           value={editor.isActive('heading', { level: 2 }) ? 'h2' : editor.isActive('heading', { level: 3 }) ? 'h3' : 'p'}
           onChange={event => {
@@ -198,7 +382,7 @@ export default function RichTextEditor({ value, onChange, onUploadImage }: RichT
             if (size) editor.chain().focus().setFontSize(size).run()
             else editor.chain().focus().unsetFontSize().run()
           }}
-          className={selectClassName}
+          className={cn(selectClassName, 'w-[92px]')}
           aria-label="Font size"
           disabled={sourceMode}
         >
@@ -206,76 +390,64 @@ export default function RichTextEditor({ value, onChange, onUploadImage }: RichT
             <option key={size.label} value={size.value}>{size.label}</option>
           ))}
         </select>
+      </ToolbarGroup>
 
+      <ToolbarGroup>
         <ToolbarButton label="Bold" active={editor.isActive('bold')} disabled={sourceMode} onClick={() => editor.chain().focus().toggleBold().run()}>B</ToolbarButton>
         <ToolbarButton label="Italic" active={editor.isActive('italic')} disabled={sourceMode} onClick={() => editor.chain().focus().toggleItalic().run()}>I</ToolbarButton>
         <ToolbarButton label="Underline" active={editor.isActive('underline')} disabled={sourceMode} onClick={() => editor.chain().focus().toggleUnderline().run()}>U</ToolbarButton>
-        <ToolbarButton label="Code" active={editor.isActive('code')} disabled={sourceMode} onClick={() => editor.chain().focus().toggleCode().run()}>{`<>`}</ToolbarButton>
+        <ToolbarButton label="Inline code" active={editor.isActive('code')} disabled={sourceMode} onClick={() => editor.chain().focus().toggleCode().run()}>{`<>`}</ToolbarButton>
+      </ToolbarGroup>
 
-        <Divider />
-
-        <ToolbarButton label="Bullet list" active={editor.isActive('bulletList')} disabled={sourceMode} onClick={() => editor.chain().focus().toggleBulletList().run()}>UL</ToolbarButton>
+      <ToolbarGroup>
+        <ToolbarButton label="Bullet list" active={editor.isActive('bulletList')} disabled={sourceMode} onClick={() => editor.chain().focus().toggleBulletList().run()}>Bullets</ToolbarButton>
         <ToolbarButton label="Numbered list" active={editor.isActive('orderedList')} disabled={sourceMode} onClick={() => editor.chain().focus().toggleOrderedList().run()}>1.</ToolbarButton>
-        <ToolbarButton label="Quote" active={editor.isActive('blockquote')} disabled={sourceMode} onClick={() => editor.chain().focus().toggleBlockquote().run()}>" "</ToolbarButton>
-        <ToolbarButton label="Code block" active={editor.isActive('codeBlock')} disabled={sourceMode} onClick={() => editor.chain().focus().toggleCodeBlock().run()}>{`{}`}</ToolbarButton>
+        <ToolbarButton label="Quote" active={editor.isActive('blockquote')} disabled={sourceMode} onClick={() => editor.chain().focus().toggleBlockquote().run()}>Quote</ToolbarButton>
+        <ToolbarButton label="Code block" active={editor.isActive('codeBlock')} disabled={sourceMode} onClick={() => editor.chain().focus().toggleCodeBlock().run()}>{`{ }`}</ToolbarButton>
+      </ToolbarGroup>
 
-        <Divider />
+      <ToolbarGroup>
+        <ToolbarButton label="Align left" active={editor.isActive({ textAlign: 'left' })} disabled={sourceMode} onClick={() => editor.chain().focus().setTextAlign('left').run()}>Left</ToolbarButton>
+        <ToolbarButton label="Align center" active={editor.isActive({ textAlign: 'center' })} disabled={sourceMode} onClick={() => editor.chain().focus().setTextAlign('center').run()}>Center</ToolbarButton>
+        <ToolbarButton label="Align right" active={editor.isActive({ textAlign: 'right' })} disabled={sourceMode} onClick={() => editor.chain().focus().setTextAlign('right').run()}>Right</ToolbarButton>
+      </ToolbarGroup>
 
-        <ToolbarButton label="Align left" active={editor.isActive({ textAlign: 'left' })} disabled={sourceMode} onClick={() => editor.chain().focus().setTextAlign('left').run()}>L</ToolbarButton>
-        <ToolbarButton label="Align center" active={editor.isActive({ textAlign: 'center' })} disabled={sourceMode} onClick={() => editor.chain().focus().setTextAlign('center').run()}>C</ToolbarButton>
-        <ToolbarButton label="Align right" active={editor.isActive({ textAlign: 'right' })} disabled={sourceMode} onClick={() => editor.chain().focus().setTextAlign('right').run()}>R</ToolbarButton>
-        <ToolbarButton label="Link" active={editor.isActive('link')} disabled={sourceMode} onClick={setLink}>Link</ToolbarButton>
-        <ToolbarButton label="Image URL" disabled={sourceMode} onClick={addImageByUrl}>Img</ToolbarButton>
-
-        {onUploadImage ? (
+      <ToolbarGroup>
+        <ToolbarButton label="Add link" active={editor.isActive('link')} disabled={sourceMode} onClick={onSetLink}>Link</ToolbarButton>
+        <ToolbarButton label="Image from URL" disabled={sourceMode} onClick={onAddImageByUrl}>Image URL</ToolbarButton>
+        {hasUploader ? (
           <>
             <input
               ref={fileInputRef}
               type="file"
               accept="image/jpeg,image/png,image/webp,image/gif"
               className="hidden"
-              onChange={event => uploadImage(event.target.files?.[0])}
+              onChange={event => onUploadImage(event.target.files?.[0])}
             />
             <ToolbarButton label="Upload image" disabled={sourceMode || uploading} onClick={() => fileInputRef.current?.click()}>
-              {uploading ? '...' : 'Up'}
+              {uploading ? 'Uploading' : 'Upload'}
             </ToolbarButton>
           </>
         ) : null}
+      </ToolbarGroup>
 
-        <Divider />
+      <ToolbarGroup>
+        <Swatches label="Text color" swatches={colorSwatches} disabled={sourceMode} onPick={color => editor.chain().focus().setColor(color).run()} />
+        <Swatches label="Highlight" swatches={highlightSwatches} disabled={sourceMode} onPick={color => editor.chain().focus().toggleHighlight({ color }).run()} />
+      </ToolbarGroup>
 
-        <Swatches
-          label="Text color"
-          swatches={colorSwatches}
-          disabled={sourceMode}
-          onPick={color => editor.chain().focus().setColor(color).run()}
-        />
-        <Swatches
-          label="Highlight"
-          swatches={highlightSwatches}
-          disabled={sourceMode}
-          onPick={color => editor.chain().focus().toggleHighlight({ color }).run()}
-        />
-
-        <ToolbarButton label="Clear styles" disabled={sourceMode} onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}>Clear</ToolbarButton>
-        <ToolbarButton label={sourceMode ? 'Visual editor' : 'HTML source'} active={sourceMode} onClick={() => setSourceMode(current => !current)}>
+      <ToolbarGroup>
+        <ToolbarButton label="Clear formatting" disabled={sourceMode} onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}>Clear</ToolbarButton>
+        <ToolbarButton label={sourceMode ? 'Visual editor' : 'HTML source'} active={sourceMode} onClick={onToggleSource}>
           {sourceMode ? 'Visual' : 'HTML'}
         </ToolbarButton>
-      </div>
-
-      {sourceMode ? (
-        <textarea
-          value={value}
-          onChange={event => onChange(event.target.value)}
-          rows={18}
-          className="min-h-[420px] w-full resize-y bg-black/20 px-4 py-4 font-mono text-xs leading-6 text-slate-200 outline-none placeholder:text-slate-600"
-          placeholder="<p>Raw HTML source</p>"
-        />
-      ) : (
-        <EditorContent editor={editor} className="rich-editor" />
-      )}
+      </ToolbarGroup>
     </div>
   )
+}
+
+function ToolbarGroup({ children }: { children: ReactNode }) {
+  return <div className="flex min-h-9 max-w-full flex-wrap items-center gap-1 rounded-xl border border-slate-200 bg-white px-1.5 py-1 shadow-sm">{children}</div>
 }
 
 function ToolbarButton({
@@ -300,8 +472,8 @@ function ToolbarButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        'grid h-9 min-w-9 place-items-center rounded-full border px-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-45',
-        active ? 'border-secondary bg-secondary/15 text-secondary' : 'border-white/10 bg-white/[0.04] text-slate-300 hover:border-secondary/50 hover:text-secondary'
+        'inline-flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-[11px] font-semibold text-slate-700 transition disabled:cursor-not-allowed disabled:opacity-35',
+        active ? 'bg-cyan-100 text-cyan-800' : 'hover:bg-slate-100 hover:text-cyan-800'
       )}
     >
       {children}
@@ -321,7 +493,8 @@ function Swatches({
   onPick: (color: string) => void
 }) {
   return (
-    <div className="flex items-center gap-1" aria-label={label}>
+    <div className="flex flex-wrap items-center gap-1 pl-1" aria-label={label}>
+      <span className="mr-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">{label === 'Text color' ? 'Text' : 'Mark'}</span>
       {swatches.map(color => (
         <MicroButton
           key={color}
@@ -330,7 +503,7 @@ function Swatches({
           aria-label={`${label}: ${color}`}
           disabled={disabled}
           onClick={() => onPick(color)}
-          className="h-7 w-7 rounded-full border border-white/15 transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-45"
+          className="h-6 w-6 rounded-md border border-slate-300 transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40"
           style={{ backgroundColor: color }}
         />
       ))}
@@ -338,8 +511,12 @@ function Swatches({
   )
 }
 
-function Divider() {
-  return <span className="mx-1 h-7 w-px bg-white/10" aria-hidden="true" />
+function getTextStats(text: string) {
+  const trimmed = text.trim()
+  return {
+    words: trimmed ? trimmed.split(/\s+/).length : 0,
+    characters: text.replace(/\s/g, '').length
+  }
 }
 
-const selectClassName = 'h-9 rounded-full border border-white/10 bg-[#0B0F14] px-3 text-xs font-semibold text-slate-200 outline-none transition focus:border-secondary/50 disabled:opacity-45'
+const selectClassName = 'h-8 rounded-lg border-0 bg-transparent px-2 text-[11px] font-semibold text-slate-700 outline-none transition hover:bg-slate-100 focus:bg-slate-100 disabled:opacity-40'
