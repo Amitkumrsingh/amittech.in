@@ -115,6 +115,7 @@ Media:
 - `SUPER_ADMIN` can manage all users, posts, media, ownership, role/status, and featured state.
 - Soft deletes are used for posts and media.
 - `/admin` is available to any authenticated user. Regular users see their own posts; super admins see all posts and featured controls.
+- Published CMS posts are merged into `/blog`, `/blog/[slug]`, `/sitemap.xml`, and `/rss.xml`. Draft and archived posts stay private to the dashboard.
 
 ## Rich Text Content
 

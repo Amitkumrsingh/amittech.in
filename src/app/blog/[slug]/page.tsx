@@ -7,7 +7,7 @@ import ArticleReadingProgress from '../../../components/ArticleReadingProgress'
 import BlogCover from '../../../components/BlogCover'
 import JsonLd from '../../../components/JsonLd'
 import { getArticleTocItems } from '../../../features/blog'
-import { getArticleSchema, getBlogPost, getBlogPostPath, getBlogPosts, getBlogPostUrl, getRelatedPosts } from '../../../lib/blog'
+import { getAllBlogPosts, getArticleSchema, getBlogPostBySlug, getBlogPostPath, getBlogPosts, getBlogPostUrl, getRelatedPosts } from '../../../lib/blog'
 import { absoluteUrl, getOgImageUrl, SITE_NAME } from '../../../lib/site'
 
 type ArticlePageProps = {
@@ -20,12 +20,14 @@ export function generateStaticParams() {
   return getBlogPosts().map(post => ({ slug: post.slug }))
 }
 
-export function generateMetadata({ params }: ArticlePageProps): Metadata {
-  const post = getBlogPost(params.slug)
+export const dynamicParams = true
+
+export async function generateMetadata({ params }: ArticlePageProps): Promise<Metadata> {
+  const post = await getBlogPostBySlug(params.slug)
   if (!post) return {}
 
   const url = absoluteUrl(getBlogPostPath(post))
-  const ogImage = getOgImageUrl(post.title, post.category)
+  const ogImage = post.coverImage || getOgImageUrl(post.title, post.category)
 
   return {
     title: `${post.title} - Amit Kumar Singh`,
@@ -40,6 +42,7 @@ export function generateMetadata({ params }: ArticlePageProps): Metadata {
       siteName: SITE_NAME,
       type: 'article',
       publishedTime: post.publishDate,
+      modifiedTime: post.updatedDate,
       tags: post.tags,
       images: [{ url: ogImage }]
     },
@@ -52,13 +55,15 @@ export function generateMetadata({ params }: ArticlePageProps): Metadata {
   }
 }
 
-export default function ArticlePage({ params }: ArticlePageProps) {
-  const post = getBlogPost(params.slug)
+export default async function ArticlePage({ params }: ArticlePageProps) {
+  const post = await getBlogPostBySlug(params.slug)
   if (!post) notFound()
 
   const url = getBlogPostUrl(post)
-  const relatedPosts = getRelatedPosts(post)
+  const allPosts = await getAllBlogPosts()
+  const relatedPosts = getRelatedPosts(post, 3, allPosts)
   const tocItems = getArticleTocItems(post)
+  const isCmsPost = post.source === 'cms'
 
   return (
     <main className="relative px-4 pb-10 pt-24 sm:px-6 sm:pb-14 sm:pt-28">
@@ -104,43 +109,7 @@ export default function ArticlePage({ params }: ArticlePageProps) {
           <div className="min-w-0">
             <Callout>{post.hook}</Callout>
 
-            <div className="mt-10 space-y-12">
-              {post.sections.map(section => (
-                <section key={section.id} id={section.id} className="scroll-mt-28">
-                  <h2 className="text-3xl font-display font-semibold leading-tight text-white">{section.title}</h2>
-                  <div className="mt-5 space-y-5 text-lg leading-9 text-slate-300">
-                    {section.body.map(paragraph => (
-                      <p key={paragraph}>{paragraph}</p>
-                    ))}
-                  </div>
-                </section>
-              ))}
-
-              <section id="lessons" className="scroll-mt-28 border-y border-white/10 py-8">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-secondary">What I took away</p>
-                <ul className="mt-5 grid gap-4">
-                  {post.takeaways.map((takeaway, index) => (
-                    <li key={takeaway} className="grid grid-cols-[36px_minmax(0,1fr)] gap-4">
-                      <span className="grid h-9 w-9 place-items-center rounded-full border border-secondary/25 bg-secondary/10 text-sm font-semibold text-secondary">
-                        {index + 1}
-                      </span>
-                      <span className="pt-1 text-lg leading-8 text-slate-200">{takeaway}</span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-
-              <section id="production-notes" className="scroll-mt-28">
-                <h2 className="text-3xl font-display font-semibold text-white">Production Notes</h2>
-                <div className="mt-5 grid gap-3">
-                  {post.productionNotes.map(note => (
-                    <div key={note} className="border-l border-secondary/40 bg-white/[0.03] px-4 py-3 text-base leading-7 text-slate-300">
-                      {note}
-                    </div>
-                  ))}
-                </div>
-              </section>
-            </div>
+            {isCmsPost ? <CmsArticleBody html={post.html} /> : <StaticArticleBody post={post} />}
           </div>
 
           <aside className="lg:sticky lg:top-28">
@@ -179,6 +148,69 @@ export default function ArticlePage({ params }: ArticlePageProps) {
         </section>
       </article>
     </main>
+  )
+}
+
+function StaticArticleBody({ post }: { post: NonNullable<Awaited<ReturnType<typeof getBlogPostBySlug>>> }) {
+  return (
+    <div className="mt-10 space-y-12">
+      {(post.sections || []).map(section => (
+        <section key={section.id} id={section.id} className="scroll-mt-28">
+          <h2 className="text-3xl font-display font-semibold leading-tight text-white">{section.title}</h2>
+          <div className="mt-5 space-y-5 text-lg leading-9 text-slate-300">
+            {section.body.map(paragraph => (
+              <p key={paragraph}>{paragraph}</p>
+            ))}
+          </div>
+        </section>
+      ))}
+
+      {post.takeaways?.length ? (
+        <section id="lessons" className="scroll-mt-28 border-y border-white/10 py-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-secondary">What I took away</p>
+          <ul className="mt-5 grid gap-4">
+            {post.takeaways.map((takeaway, index) => (
+              <li key={takeaway} className="grid grid-cols-[36px_minmax(0,1fr)] gap-4">
+                <span className="grid h-9 w-9 place-items-center rounded-full border border-secondary/25 bg-secondary/10 text-sm font-semibold text-secondary">
+                  {index + 1}
+                </span>
+                <span className="pt-1 text-lg leading-8 text-slate-200">{takeaway}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {post.productionNotes?.length ? (
+        <section id="production-notes" className="scroll-mt-28">
+          <h2 className="text-3xl font-display font-semibold text-white">Production Notes</h2>
+          <div className="mt-5 grid gap-3">
+            {post.productionNotes.map(note => (
+              <div key={note} className="border-l border-secondary/40 bg-white/[0.03] px-4 py-3 text-base leading-7 text-slate-300">
+                {note}
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+    </div>
+  )
+}
+
+function CmsArticleBody({ html }: { html?: string | null }) {
+  if (!html) {
+    return (
+      <div className="mt-10 border-y border-white/10 py-10 text-lg leading-9 text-slate-300">
+        This article has been published, but its body is empty.
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className="mt-10 space-y-6 text-lg leading-9 text-slate-300 [&_a]:font-semibold [&_a]:text-secondary [&_blockquote]:border-l-2 [&_blockquote]:border-secondary/60 [&_blockquote]:bg-white/[0.03] [&_blockquote]:px-5 [&_blockquote]:py-4 [&_code]:rounded-md [&_code]:bg-white/10 [&_code]:px-1.5 [&_code]:py-0.5 [&_figure]:my-8 [&_h2]:scroll-mt-28 [&_h2]:pt-4 [&_h2]:font-display [&_h2]:text-3xl [&_h2]:font-semibold [&_h2]:leading-tight [&_h2]:text-white [&_h3]:scroll-mt-28 [&_h3]:pt-3 [&_h3]:font-display [&_h3]:text-2xl [&_h3]:font-semibold [&_h3]:text-white [&_hr]:border-white/10 [&_img]:rounded-[24px] [&_img]:border [&_img]:border-white/10 [&_img]:object-cover [&_li]:ml-6 [&_li]:list-disc [&_ol_li]:list-decimal [&_pre]:overflow-x-auto [&_pre]:rounded-2xl [&_pre]:border [&_pre]:border-white/10 [&_pre]:bg-black/35 [&_pre]:p-4 [&_table]:w-full [&_table]:overflow-hidden [&_table]:rounded-2xl [&_td]:border [&_td]:border-white/10 [&_td]:p-3 [&_th]:border [&_th]:border-white/10 [&_th]:p-3"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
   )
 }
 

@@ -1,8 +1,10 @@
 import type { Metadata } from 'next'
 import BlogSection from '../../components/BlogSection'
 import JsonLd from '../../components/JsonLd'
-import { getBlogPosts, getBlogSchema } from '../../lib/blog'
+import { getAllBlogPosts, getBlogCategoriesForPosts, getBlogSchema } from '../../lib/blog'
 import { absoluteUrl, getOgImageUrl, SITE_NAME } from '../../lib/site'
+
+export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'Engineering Notes - Amit Kumar Singh',
@@ -33,11 +35,14 @@ export const metadata: Metadata = {
   }
 }
 
-export default function BlogPage() {
+export default async function BlogPage() {
+  const posts = await getAllBlogPosts()
+  const categories = getBlogCategoriesForPosts(posts)
+
   return (
     <main className="mx-auto max-w-6xl px-4 pb-10 pt-24 sm:px-6 sm:pb-14 sm:pt-28">
-      <JsonLd data={getBlogSchema(getBlogPosts())} />
-      <BlogSection />
+      <JsonLd data={getBlogSchema(posts)} />
+      <BlogSection posts={posts} categories={categories} />
     </main>
   )
 }

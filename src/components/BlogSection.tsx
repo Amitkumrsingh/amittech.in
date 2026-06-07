@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from '../lib/motion'
 import motionTheme from '../lib/motionTheme'
-import { getBlogCategories, getBlogPosts, getFeaturedPost, getLatestPosts } from '../lib/blog'
+import { getBlogCategories, getBlogCategoriesForPosts, getBlogPosts, getFeaturedPost, getLatestPosts } from '../lib/blog'
 import {
   BLOG_FILTER_ALL,
   BLOG_INITIAL_VISIBLE_POSTS,
@@ -17,11 +17,16 @@ import {
 import BlogCard from './BlogCard'
 import FeaturedBlogCard from './FeaturedBlogCard'
 
-export default function BlogSection() {
-  const allPosts = useMemo(() => getBlogPosts(), [])
+type BlogSectionProps = {
+  posts?: BlogPost[]
+  categories?: readonly BlogCategory[]
+}
+
+export default function BlogSection({ posts, categories: providedCategories }: BlogSectionProps = {}) {
+  const allPosts = useMemo(() => posts ?? getBlogPosts(), [posts])
   const featuredPost = useMemo(() => getFeaturedPost(allPosts), [allPosts])
   const latestPosts = useMemo(() => getLatestPosts(allPosts), [allPosts])
-  const categories = useMemo(() => getBlogCategories(), [])
+  const categories = useMemo(() => providedCategories ?? getBlogCategoriesForPosts(allPosts) ?? getBlogCategories(), [allPosts, providedCategories])
   const [activeCategory, setActiveCategory] = useState<BlogCategoryFilter>(BLOG_FILTER_ALL)
   const [query, setQuery] = useState('')
   const [visibleCount, setVisibleCount] = useState(BLOG_INITIAL_VISIBLE_POSTS)

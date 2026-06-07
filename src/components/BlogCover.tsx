@@ -17,13 +17,16 @@ export default function BlogCover({ post, featured = false, quiet = false }: Blo
       role="img"
       aria-label={`${post.title} cover image`}
     >
-      <div className={cn('absolute inset-0 bg-gradient-to-br', post.cover.gradient)} />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_24%_18%,rgba(255,255,255,0.18),transparent_28%),linear-gradient(125deg,rgba(255,255,255,0.12)_0,rgba(255,255,255,0.03)_36%,rgba(4,7,12,0.82)_100%)]" />
+      {post.coverImage ? (
+        <img src={post.coverImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      ) : null}
+      <div className={cn('absolute inset-0 bg-gradient-to-br', post.cover.gradient, post.coverImage ? 'opacity-45 mix-blend-multiply' : undefined)} />
+      <div className={cn('absolute inset-0 bg-[radial-gradient(circle_at_24%_18%,rgba(255,255,255,0.18),transparent_28%),linear-gradient(125deg,rgba(255,255,255,0.12)_0,rgba(255,255,255,0.03)_36%,rgba(4,7,12,0.82)_100%)]', post.coverImage ? 'bg-black/30' : undefined)} />
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.055)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.055)_1px,transparent_1px)] bg-[length:30px_30px] opacity-25" />
       <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full border border-white/10 bg-white/5 blur-2xl" />
       <div className="absolute bottom-0 left-0 right-0 h-36 bg-gradient-to-t from-black/80 to-transparent" />
 
-      <VisualMotif motif={post.cover.motif} featured={featured} />
+      {post.coverImage ? null : <VisualMotif motif={post.cover.motif} featured={featured} />}
 
       <div className="relative z-10 flex h-full min-h-[inherit] flex-col justify-between p-5 sm:p-7">
         <div className="flex items-start justify-between gap-4">

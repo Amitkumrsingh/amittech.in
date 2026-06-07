@@ -1,8 +1,10 @@
-import { getBlogPostPath, getBlogPosts } from '../../lib/blog'
+import { getAllBlogPosts, getBlogPostPath } from '../../lib/blog'
 import { absoluteUrl, SITE_NAME, SITE_URL } from '../../lib/site'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
-  const posts = getBlogPosts()
+  const posts = await getAllBlogPosts()
 
   const items = posts.map(post => {
     const url = absoluteUrl(getBlogPostPath(post))

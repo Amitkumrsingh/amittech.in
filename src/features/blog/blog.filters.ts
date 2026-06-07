@@ -26,7 +26,7 @@ function getBlogSearchText(post: BlogPost) {
     post.hook,
     post.category,
     ...post.tags,
-    ...post.takeaways,
-    ...post.productionNotes
+    ...(post.takeaways || []),
+    ...(post.productionNotes || [])
   ].join(' ').toLowerCase()
 }
