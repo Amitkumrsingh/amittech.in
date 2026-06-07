@@ -18,48 +18,72 @@ interface ExperimentData {
   }
 }
 
-function getOrCreateVariant(experiment: Experiment): ExperimentVariant {
+function createExperimentData(variant: ExperimentVariant): ExperimentData {
+  return {
+    variant,
+    startedAt: new Date().toISOString(),
+    engagementMetrics: {
+      scrollDepth: 0,
+      timeSpent: 0,
+      interactionCount: 0,
+      resumeDownloaded: false,
+      projectsViewed: [],
+      skillsExplored: []
+    }
+  }
+}
+
+function getExperimentStorageKey(experiment: Experiment) {
+  return `${STORAGE_KEY}:${experiment}`
+}
+
+function readExperimentData(experiment: Experiment): ExperimentData | null {
   try {
-    const stored = window.localStorage.getItem(`${STORAGE_KEY}:${experiment}`)
-    if (stored) return JSON.parse(stored).variant
+    const stored = window.localStorage.getItem(getExperimentStorageKey(experiment))
+    return stored ? JSON.parse(stored) : null
+  } catch (e) {
+    return null
+  }
+}
+
+function writeExperimentData(experiment: Experiment, data: ExperimentData) {
+  window.localStorage.setItem(getExperimentStorageKey(experiment), JSON.stringify(data))
+}
+
+function getOrCreateExperimentData(experiment: Experiment): ExperimentData {
+  try {
+    const stored = readExperimentData(experiment)
+    if (stored) return stored
 
     // Randomly assign variant (50/50 for control/treatment initially)
     const variant = Math.random() < 0.5 ? 'control' : 'treatment'
-    const data: ExperimentData = {
-      variant,
-      startedAt: new Date().toISOString(),
-      engagementMetrics: {
-        scrollDepth: 0,
-        timeSpent: 0,
-        interactionCount: 0,
-        resumeDownloaded: false,
-        projectsViewed: [],
-        skillsExplored: []
-      }
-    }
-    window.localStorage.setItem(`${STORAGE_KEY}:${experiment}`, JSON.stringify(data))
-    return variant
+    const data = createExperimentData(variant)
+    writeExperimentData(experiment, data)
+    return data
   } catch (e) {
-    return 'control'
+    return createExperimentData('control')
   }
 }
 
 export function useABExperiment(experiment: Experiment) {
-  const variant = getOrCreateVariant(experiment)
+  const variant = getABExperimentVariant(experiment)
   return { variant, isControl: variant === 'control', isTreatment: variant === 'treatment' }
 }
 
-export function recordExperimentMetric(experiment: Experiment, metric: string, value: any) {
+export function getABExperimentVariant(experiment: Experiment) {
+  return getOrCreateExperimentData(experiment).variant
+}
+
+export function recordExperimentMetric(experiment: Experiment, metric: string, value: unknown) {
   try {
-    const key = `${STORAGE_KEY}:${experiment}`
-    const data = JSON.parse(window.localStorage.getItem(key) || '{}') as ExperimentData
+    const data = getOrCreateExperimentData(experiment)
 
     switch (metric) {
       case 'scrollDepth':
-        data.engagementMetrics.scrollDepth = Math.max(data.engagementMetrics.scrollDepth, value)
+        data.engagementMetrics.scrollDepth = Math.max(data.engagementMetrics.scrollDepth, Number(value))
         break
       case 'timeSpent':
-        data.engagementMetrics.timeSpent = value
+        data.engagementMetrics.timeSpent = Number(value)
         break
       case 'interactionCount':
         data.engagementMetrics.interactionCount += 1
@@ -68,18 +92,18 @@ export function recordExperimentMetric(experiment: Experiment, metric: string, v
         data.engagementMetrics.resumeDownloaded = true
         break
       case 'projectViewed':
-        if (!data.engagementMetrics.projectsViewed.includes(value)) {
+        if (typeof value === 'number' && !data.engagementMetrics.projectsViewed.includes(value)) {
           data.engagementMetrics.projectsViewed.push(value)
         }
         break
       case 'skillExplored':
-        if (!data.engagementMetrics.skillsExplored.includes(value)) {
+        if (typeof value === 'string' && !data.engagementMetrics.skillsExplored.includes(value)) {
           data.engagementMetrics.skillsExplored.push(value)
         }
         break
     }
 
-    window.localStorage.setItem(key, JSON.stringify(data))
+    writeExperimentData(experiment, data)
   } catch (e) {
     // silently fail
   }
@@ -87,8 +111,7 @@ export function recordExperimentMetric(experiment: Experiment, metric: string, v
 
 export function getExperimentMetrics(experiment: Experiment) {
   try {
-    const data = JSON.parse(window.localStorage.getItem(`${STORAGE_KEY}:${experiment}`) || '{}') as ExperimentData
-    return data.engagementMetrics
+    return readExperimentData(experiment)?.engagementMetrics ?? null
   } catch (e) {
     return null
   }

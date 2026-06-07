@@ -5,7 +5,7 @@ import motionTheme from '../lib/motionTheme'
 import { useMotion } from '../lib/motionContext'
 import ArchitectureDiagram from './ArchitectureDiagram'
 import MicroButton from './MicroButton'
-import type { Project } from '../data/projects'
+import type { Project } from '../features/projects'
 
 type ProjectModalProps = {
   project: Project | null

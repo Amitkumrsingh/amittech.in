@@ -1,176 +1,291 @@
 ---
-name: frontend-design
-description: Build a frontend with a deliberate visual direction held through palette, typography, structure, and texture, with on-screen strings that name real information rather than fabricated demo data or filler labels. Use when building or restyling a frontend.
+name: frontend-product-engineering
+description: Build production-grade frontend products with strong visual direction, scalable React and Next.js architecture, design systems, accessibility, performance, testing, observability, and enterprise readiness. Use when designing, implementing, refactoring, or reviewing frontend applications, dashboards, SaaS tools, portfolio experiences, or component systems.
 ---
 
-# Frontend Design Skill
+# Frontend Product Engineering Skill
 
-Eight anchors. Each is a distinct aesthetic territory locked to specific CSS tokens. Pick one per brief. Match its tokens.
+Use this skill when the work needs both product-quality UI and production frontend engineering. The goal is not only to make screens look good, but to make them scalable, maintainable, accessible, fast, and ready for real users.
 
-> **Reach for the unexpected. Fidelity to the anchor. Discipline on the content. Nothing left to default.**
+## 1. Design Philosophy
 
----
+Before writing code, decide the product direction:
 
-## 1. How to work
+1. **Purpose** - What job does this screen or app perform?
+2. **Audience** - Who uses it, how often, and under what pressure?
+3. **Density** - Is this a marketing surface, product workflow, dashboard, editor, or operational tool?
+4. **Visual anchor** - Choose one design direction and hold it consistently.
+5. **System** - Define tokens, components, spacing, type scale, motion, and interaction rules.
+6. **Content discipline** - Every visible string should be useful, real, and appropriate to the product.
 
-Before writing code, run this sequence:
+### Eight Design Anchors
 
-1. **Context** — Identify purpose, audience, domain, content density. State the problem in one sentence.
-2. **Anchor** — Pick one. Lean unexpected. A Swiss punk record label, an Industrial florist, a Brutalist luxury watchmaker, an Aurora tax app, a Chaotic law firm, a Retro-Futuristic wedding photographer, an Organic trading terminal, a Lo-Fi luxury hotel — each more distinctive than its safe counterpart. Safe pairings produce generic work. Unexpectedness is surface-level — what a first-time viewer sees. Don't let "users are technical" or "it's really a data tool" route every brief to Industrial. State the choice and the reason in one line.
-3. **Differentiator** — Define one memorable anchor-internal move: a signature interaction, a typographic gesture, a layout motif, or a material treatment. One sentence. Describable. Visible in the rendered output.
-4. **System** — Match the chosen anchor's tokens exactly. Picking Swiss means white + sans + grid, not "some flavor of clean."
-5. **Implementation** — Outline structure, then build. Content on screen is authored to the discipline in §2 — no fabrication, no filler, no themed replacement for standard UI copy.
+Pick one visual anchor per project or major surface. Do not blend anchors without a clear product reason.
 
-Commit fully to one anchor. Hybridising ("Swiss with Brutalist edge") is a category error — each signature excludes the others by construction.
+- **Swiss** - White or neutral surfaces, strict grids, left-aligned typography, sharp editorial hierarchy.
+- **Industrial** - Dark surfaces, monospace typography, 1 px borders, operational density, tabular numbers.
+- **Brutalist** - Raw system fonts, primary colors, hard borders, native controls, intentionally direct layout.
+- **Aurora Maximalism** - Dark saturated gradients, neon accents, glassmorphism, spring motion, premium SaaS energy.
+- **Chaotic Maximalism** - Clashing colors, mixed typefaces, patterns, intentionally loud composition.
+- **Retro-Futuristic** - Neon pairs, terminal or CRT influence, scanline texture, committed glow.
+- **Organic** - Earth tones, humanist type, soft corners, grain, gentle motion.
+- **Lo-Fi** - Paper-yellow surfaces, mixed system fonts, rotated elements, halftone or risograph texture.
 
----
+### Content Discipline
 
-## 2. Content is not design
+Design quality collapses when the content is fake. Use real product data when available. If content is illustrative, make it clearly sample content.
 
-Design is visuals — palette, typography, structure, texture. **Content — every string, number, and label on screen — is authored separately and has its own discipline.** Token fidelity is not a defence against content slop.
+Avoid:
 
-The rule: every string on screen must either name real information from the product, or be authored content that knows what it is — headline, button label, legal body, form field name, sample data that reads as sample. What's forbidden is content pretending to be something it isn't.
+- Fabricated metrics pretending to be real.
+- Decorative labels that add no information.
+- Over-themed replacements for standard UI copy.
+- Unicode symbols used as fake icons.
+- Generic AI-sounding taglines, filler subtitles, and empty marketing phrases.
 
-**Forbidden:**
+### Token Fidelity Rules
 
-- **Fabrication posing as real data.** Invented session personas (`a.chen@grid.co`), fake telemetry (`GRID.FREQ 59.998 Hz`, `BUILD 8.2.0-rc3`). If a slot has no real content, leave it empty — do not fabricate to make the screen look alive.
-- **Filler labels.** Mono-caps subtitles nobody asked for (`SECURE OPERATOR AUTHENTICATION` under a login masthead), `//`-prefixed kickers pretending to be code comments (`// INTELLIGENCE LAYER`). If removing the string removes no information, it was filler.
-- **Themed replacement of standard UI copy.** `Authenticate Session` instead of `Next`; `Remember this operator` instead of `Remember me`. Standard copy for standard actions. Themed copy is a tax that must be paid with actual utility.
-- **Unicode glyphs as icon substitutes.** `▣ Dashboard`, `◊ Market Navigator`. Either use a real icon set or use nothing. ASCII art is not iconography.
-- **AI-slop register.** The model recognises this. Twee subcopy on serious surfaces (`Ask the grid.`), synth-sci-fi status strips on mundane B2B, ornamental "seam"/"joinery" flourishes pretending to be structural. Recognise it in your own output; cut it before the reviewer does.
+- Define semantic tokens first: surface, text, muted text, border, accent, danger, success, warning, radius, shadow, spacing, motion.
+- Use raw hex values only when creating or extending the token system.
+- Keep typography consistent with the selected anchor.
+- Keep spacing and radii consistent across repeated components.
+- Use icons from the existing icon library instead of hand-made symbol hacks.
+- Make hover, focus, active, disabled, loading, empty, and error states intentional.
 
----
+## 2. Product Architecture
 
-## 3. The eight anchors
+Prefer architecture that lets the product grow without making every new feature a custom one-off.
 
-Each anchor locks specific CSS tokens. Picking the anchor commits to those tokens. If the rendered output drifts outside them, the anchor didn't hold.
+### Configuration-Driven Architecture
 
-### 1. Swiss
+Use configuration when the product has repeated patterns with changing metadata.
 
-**Surface:** Pure white `#FFFFFF` or neutral `#F7F7F8`. **Typography:** Akzidenz-Grotesk, Helvetica Neue, or Söhne — sans display and body, one family. **Accent:** Swiss Red `#E4002B`, International Orange `#FF4F00`, or Yves Klein Blue `#002FA7` — one, used deliberately. **Structure:** visible grid lines or 1 px hairline rules. Left-aligned typography; asymmetric balance. Numerals as composition elements (dates, folio numbers, page markers set in condensed sans).
+- **Dynamic forms** - Field config, validation schema, visibility rules, dependent fields, multi-step flows.
+- **Dynamic tables** - Column config, sorting, filtering, pagination, row actions, empty states.
+- **Dynamic navigation** - Role-aware menus, route metadata, active state, breadcrumbs.
+- **Workflow engine** - Statuses, transitions, guard conditions, audit events, user actions.
+- **Dashboard widgets** - Widget registry, layout config, data source contract, loading and error states.
+- **Schema-driven UI** - Use typed schemas for forms, filters, cards, tables, and API payloads.
+- **Metadata-driven components** - Keep labels, permissions, feature flags, and render rules close to the schema.
 
-**Breaks if:** warm paper, serif display, grain texture, or centered typography appears.
+Use configuration to remove meaningful duplication. Do not turn simple static UI into a framework.
 
-### 2. Industrial
+### Design System Architecture
 
-**Surface:** Pitch black `#000000` or warm-black `#0B0C0A`. **Typography:** IBM Plex Mono, JetBrains Mono, or Berkeley Mono — mono for display and body. **Signal color:** one semantic — green `#00E676`, red `#FF3B30`, amber `#FFB800`, or acid lime `#C6FF4A`. **Structure:** flat; 1 px borders instead of shadows. Tabular numerics via `font-variant-numeric: tabular-nums`.
+Build the system from stable primitives:
 
-**Breaks if:** serif typography, proportional fonts, warm paper, any grain, decorative shadows, or rounded corners appear.
+- **Design tokens** - Color, typography, spacing, radius, elevation, z-index, motion, breakpoints.
+- **Component library** - Buttons, inputs, dialogs, menus, tabs, cards, tables, toasts, layout primitives.
+- **Theme system** - Light and dark mode, brand variants, semantic colors, user preference handling.
+- **Accessibility standards** - Focus rings, keyboard support, semantic HTML, ARIA only where needed.
+- **Documentation by usage** - Component examples should show real product patterns, not toy demos.
 
-### 3. Brutalist
+### Component-Driven Development
 
-**Surface:** Pure primary or anti-primary — `#FF0000`, `#0000FF`, `#FFFF00`, `#000000`, `#FFFFFF`. Pick 2–3, compete equally. **Typography:** system fonts only — Times New Roman, Helvetica, Courier, Arial, system-ui. Mix faces deliberately. **Shadows:** hard offset, no blur — `box-shadow: 8px 8px 0 #000`. **Controls:** native browser — unstyled `<button>`, default `<select>`, underlined blue links that stay blue. Margins crushed; type runs edge-to-edge.
+- Use **atomic design** only where it clarifies ownership: primitives, composed components, feature sections, pages.
+- Use **compound components** for complex widgets that need flexible composition.
+- Use **headless components** when behavior should be reusable across multiple visual treatments.
+- Keep reusable components API-driven, typed, and boring. Keep feature components expressive and domain-aware.
+- Avoid premature abstractions. Extract only after the same shape appears more than once with real pressure to reuse.
 
-**Breaks if:** webfonts, tuned hex beyond pure primaries, soft shadows, rounded corners, or centered layout appear.
+### Feature-Based Architecture
 
-### 4. Aurora Maximalism
+Organize by product domain when the app grows:
 
-**Surface:** Dark saturated gradient — `linear-gradient` or `conic-gradient` through violet `#5D34D0` → magenta `#FF006E` → cyan `#00F0FF`, or `#3B82F6 → #A855F7 → #EC4899`. **Typography:** Inter Variable, PP Neue Machina, or Sharp Grotesk for oversized display (15–25 vw). **Texture:** mesh gradient as primary surface feature; neon `text-shadow` glow on accents (`0 0 20px <accent>`). **Motion:** spring-physics orchestration, scroll-linked parallax.
+```text
+src/
+  app/
+  components/
+  features/
+    billing/
+    dashboard/
+    onboarding/
+  lib/
+  data/
+  hooks/
+  styles/
+```
 
-**Breaks if:** flat backgrounds, warm paper, restraint, or hairline rules as primary structure appear.
+Use shared libraries for cross-cutting code only: API clients, auth helpers, formatters, design-system primitives, analytics, and stable hooks.
 
-### 5. Chaotic Maximalism
+## 3. Production Frontend Engineering
 
-**Surface:** Clashing palette — pastels *and* neons in the same composition. Hot pink `#FF71CE` + acid yellow `#DFFF00` + cyan `#00FFFF` + any third. **Typography:** mixed faces deliberately colliding — 3+ faces from different registers on the same page. **Texture:** patterns on every surface (squiggles, dots, zigzags, checker — SVG or `repeating-linear-gradient`). Oversized display crashing against busy ground.
+### Application Architecture
 
-**Breaks if:** coherent palette, single typeface, whitespace as structural element, or 60/30/10 dominance appears.
+For React and Next.js App Router:
 
-### 6. Retro-Futuristic
+- Use Server Components for static, data-heavy, and SEO-friendly rendering.
+- Use Client Components only for state, events, browser APIs, animations, and interactive controls.
+- Keep API integration in a clear layer: typed fetchers, response normalization, error mapping, retries where appropriate.
+- Keep route-level concerns in pages/layouts and business behavior inside features.
+- Prefer framework primitives for routing, metadata, image optimization, caching, and streaming.
 
-**Surface:** Pitch black `#0A0014` or deep navy-black. **Typography:** period-specific — VT323 (CRT), Orbitron (synthwave), Space Mono (cyberpunk), Monoton (Miami-neon), Press Start 2P (arcade), IBM Plex Mono (terminal). **Accent:** neon pair — magenta `#FF006E` + cyan `#00FFFF` (synthwave) or phosphor green `#00FF41` + amber `#FFB000` (terminal). **Texture:** CRT scanlines via `::before` `repeating-linear-gradient` overlay, or chromatic aberration (`text-shadow: 2px 0 #FF0000, -2px 0 #00FFFF`), or both. Glow committed.
+### State Management
 
-**Breaks if:** flatness, modern sans-serifs (Inter, Söhne), paper surfaces, or absence of texture appears.
+Choose the smallest state model that fits:
 
-### 7. Organic
+- **Local state** - UI state owned by one component.
+- **Context API** - Stable app-level preferences or low-frequency shared state.
+- **Zustand** - Lightweight cross-component client state.
+- **Redux Toolkit** - Complex app state with strict event flow, debugging, or enterprise standards.
+- **TanStack Query** - Server state, caching, background refresh, optimistic updates, mutations.
 
-**Surface:** Earth tones — sage `#8B9D83`, clay `#B08B6E`, terracotta `#C66B3D`, ochre `#C08E3A`, moss `#606C38`. When a light surface is needed: sand `#E8DCC7` or oat `#D4B895`. **Never cream `#F0-F8` warm-paper range.** **Typography:** humanist serif (Freight, Caslon, Fraunces — Fraunces is restricted to this anchor only) or warm geometric sans (Greycliff, Epilogue, Recoleta). **Structure:** rounded corners 16–32 px. **Texture:** grain at 1–3 % via SVG feTurbulence. **Motion:** gentle ease 300–500 ms, breathing animations on hero elements.
+Do not store server state in global client stores unless there is a strong reason.
 
-**Breaks if:** cream backgrounds (warm-tinted `#F0+`), cold greys, pure whites, pure blacks, or hard rectangles appear.
+### Authentication And Security
 
-### 8. Lo-Fi
+- Use HTTP-only cookies where possible for sensitive auth tokens.
+- Support JWT, OAuth, and session-based auth according to backend constraints.
+- Implement protected routes, RBAC, and permission-based rendering.
+- Treat frontend permission checks as UX gates, not security boundaries.
+- Avoid localStorage for sensitive tokens.
+- Sanitize untrusted content and avoid unsafe HTML unless explicitly reviewed.
 
-**Surface:** Paper-yellow `#E8E0C0` or `#EDE4CF` — more saturated than cream. **Typography:** mixed system fonts on the same page (Times + Helvetica + Courier colliding deliberately). **Structure:** rotated elements (2–8° off-grid via `transform: rotate`). **Texture:** halftone dot transitions (SVG pattern or `radial-gradient` tile) on imagery; Risograph misregistration (2–4 px RGB channel offset via `text-shadow: 3px 0 #FF006E, -3px 0 #00FFCC`). SVG staple, tape, torn-edge elements.
+### Forms And Validation
 
-**Breaks if:** precision, single typeface, smooth motion, rectangles squared to the grid, or cream (the surface is specifically paper-yellow, more saturated) appears.
+- Prefer React Hook Form for complex forms.
+- Prefer Zod for shared runtime validation and typed schemas.
+- Model multi-step forms as state machines or explicit step configs when flows grow.
+- Put validation errors close to fields and keep error text human.
+- Support loading, disabled, optimistic, success, and retry states.
 
----
+### Error Handling And Resilience
 
-## 4. Output
+- Add Error Boundaries around risky feature surfaces.
+- Provide useful fallback UI for failed API calls.
+- Use retry strategies selectively. Do not retry destructive actions blindly.
+- Support offline or reconnect states where the product benefits from it.
+- Log meaningful errors with route, feature, user action, and safe metadata.
 
-Every implementation delivers:
+## 4. Performance Engineering
 
-- **Stated direction** — A short preamble in a designer's prose before the code, naming: the chosen anchor, why this pairing over the safe one, the differentiator, and the key palette / typefaces / texture choices pulled from the anchor. Written with conviction, not as a checklist.
-- **Token fidelity** — The rendered CSS matches the anchor's tokens exactly. If Swiss is chosen, the CSS contains no warm paper, no Fraunces, no grain. If Industrial is chosen, every typeface declared is monospace. Token drift means the anchor didn't hold.
-- **Content discipline** — Every string, number, and label on screen names real information or is authored content that knows what it is. No fabricated data, no filler labels, no themed replacement for standard UI copy, no unicode-glyph icons. Token fidelity alone is not sufficient; content ships too.
-- **Differentiator visible** — The one memorable move is implemented in the rendered output, not merely described.
+Track Core Web Vitals as product quality:
 
----
+- **LCP** - Optimize hero media, server rendering, critical CSS, and data waterfalls.
+- **INP** - Reduce main-thread work, avoid heavy synchronous handlers, split expensive interactions.
+- **CLS** - Reserve dimensions for images, ads, embeds, cards, grids, and async content.
 
-## 5. Before shipping
+Optimization checklist:
 
-- **Unexpected pairing** — Did the choice reach for creative tension, or default to the safe pairing?
-- **Token fidelity** — Does every rendered token live inside the anchor's allowed range? If tokens appear that the anchor doesn't allow, the anchor didn't hold.
-- **Content discipline** — Every label names real information; standard UI copy for standard actions; no fabrication, filler mono-caps, `//` kickers, unicode-glyph icons, twee subcopy, or AI-slop register. If any appeared, cut.
-- **Differentiator visible** — Is the memorable anchor-internal move actually rendered?
-- **Hybrid resistance** — Was one anchor held, or did the execution drift into "Swiss with Brutalist edge"?
+- Code split feature-heavy routes.
+- Lazy load below-the-fold media and expensive widgets.
+- Optimize images with Next.js Image or equivalent tooling.
+- Virtualize large lists and tables.
+- Audit bundle size and remove unused client dependencies.
+- Cache stable data and invalidate intentionally.
+- Prefer server-side work when it reduces client cost.
 
+## 5. Testing Strategy
 
-## Frontend Skills
+Scale testing with risk:
+
+- **Unit tests** - Pure functions, reducers, formatters, schema transforms, small hooks.
+- **Integration tests** - User-visible component behavior with React Testing Library.
+- **End-to-end tests** - Critical workflows with Playwright or Cypress.
+- **Visual checks** - Responsive layout, dark mode, loading states, empty states, long text.
+- **Accessibility checks** - Keyboard navigation, focus order, labels, contrast, screen reader basics.
+
+Do not chase coverage numbers at the cost of meaningful confidence.
+
+## 6. Accessibility
+
+Build for WCAG-aligned usability by default:
+
+- Use semantic HTML before ARIA.
+- Make all interactive controls keyboard reachable.
+- Preserve visible focus states.
+- Associate labels, descriptions, and error messages with fields.
+- Use sufficient contrast in every theme.
+- Respect reduced-motion preferences.
+- Ensure menus, dialogs, popovers, and tabs follow expected keyboard behavior.
+
+## 7. DevOps And Observability
+
+### CI/CD
+
+- Run lint, typecheck, tests, and build in CI.
+- Use GitHub Actions for repeatable checks.
+- Deploy through Vercel for Next.js unless the product requires custom infrastructure.
+- Use Docker when environment parity or self-hosting matters.
+
+### Monitoring
+
+- Add Sentry or equivalent error tracking for production apps.
+- Add analytics for product events, not vanity events.
+- Track Web Vitals and route-level performance.
+- Include release/version metadata in error reports.
+- Make logs safe: no secrets, tokens, passwords, or private user data.
+
+## 8. Modern Frontend Skills
 
 ### Core
+
 - React.js
 - Next.js
 - TypeScript
-- JavaScript (ES6+)
+- JavaScript
 - HTML5
 - CSS3
 
 ### Styling
+
 - Tailwind CSS
-- Material UI (MUI)
 - Shadcn/UI
-- Styled Components
+- Material UI
 - CSS Modules
-- SCSS/SASS
+- SCSS
 
-### Design Systems
-- Design Systems
-- Component Architecture
-- Atomic Design
-- Responsive Design
-- Mobile First Design
-- Accessibility (WCAG)
+### Animation
 
-### UI/UX
-- Glassmorphism
-- Modern SaaS UI
-- Dark Mode Design
-- Typography Systems
-- Color Theory
-- Visual Hierarchy
-- Grid Layouts
-- Landing Page Design
-
-### Animation & Interaction
 - Framer Motion
 - GSAP
-- Micro Interactions
-- Scroll Animations
-- Page Transitions
-- Parallax Effects
-- Interactive UI
-
-### Performance
-- Code Splitting
-- Lazy Loading
-- Web Vitals
-- SEO Optimization
-- Performance Optimization
+- Motion design
+- Micro-interactions
+- Scroll animations
+- Page transitions
 
 ### Tools
+
 - Figma
 - Git
 - GitHub
 - Postman
 - Vite
 - Webpack
+
+## 9. Enterprise-Grade Capabilities
+
+Design with these capabilities in mind when the product requires scale:
+
+- Configuration-driven architecture
+- Design system architecture
+- Component-driven development
+- Feature-based architecture
+- Micro-frontend readiness
+- API-first development
+- Internationalization
+- Feature flags
+- Observability
+- Analytics
+- Performance budgets
+- Accessibility first
+- Offline-first behavior
+- PWA support
+- Error resilience
+
+## Before Shipping Checklist
+
+- The chosen visual anchor is clear and consistent.
+- Tokens are semantic, reused, and not scattered as one-off styles.
+- Layout works across mobile, tablet, laptop, and desktop widths.
+- Text does not wrap badly, overflow, or collide with controls.
+- Interactive states exist: hover, focus, active, disabled, loading, empty, and error.
+- Components are placed at the right level: shared, feature, or page-specific.
+- Server and client boundaries are intentional.
+- Data fetching, caching, mutations, and error handling are clear.
+- Auth and permission rendering do not leak sensitive data.
+- Core Web Vitals risks are checked.
+- Critical workflows have appropriate tests.
+- Accessibility basics are covered.
+- Production errors and key events are observable.
+- The implementation improves the product without adding unnecessary architecture.

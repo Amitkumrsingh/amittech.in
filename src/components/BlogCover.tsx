@@ -1,5 +1,5 @@
 import { cn } from '../lib/classes'
-import type { BlogPost } from '../data/blog'
+import type { BlogCoverMotif, BlogPost } from '../features/blog'
 
 type BlogCoverProps = {
   post: BlogPost
@@ -44,7 +44,7 @@ export default function BlogCover({ post, featured = false, quiet = false }: Blo
   )
 }
 
-function VisualMotif({ motif, featured }: { motif: BlogPost['cover']['motif']; featured: boolean }) {
+function VisualMotif({ motif, featured }: { motif: BlogCoverMotif; featured: boolean }) {
   if (motif === 'database') return <DatabaseMotif featured={featured} />
   if (motif === 'ai') return <AiMotif featured={featured} />
   if (motif === 'career') return <CareerMotif featured={featured} />

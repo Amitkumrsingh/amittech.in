@@ -2,7 +2,8 @@
 
 import { motion } from '../lib/motion'
 import motionTheme from '../lib/motionTheme'
-import type { Project } from '../data/projects'
+import type { Project } from '../features/projects'
+import TagList from './TagList'
 
 type ProjectCardProps = {
   project: Project
@@ -30,11 +31,10 @@ export default function ProjectCard({ project }: ProjectCardProps) {
           <ProjectList title="Engineering challenges" items={project.challenges} />
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          {project.tech.map((t: string) => (
-            <span key={t} className="rounded-full bg-white/5 px-2 sm:px-3 py-1 text-xs text-slate-200">{t}</span>
-          ))}
-        </div>
+        <TagList
+          items={project.tech}
+          itemClassName="bg-white/5 px-2 sm:px-3 py-1 text-slate-200"
+        />
 
         {project.demoLink ? (
           <a href={project.demoLink} target="_blank" rel="noopener noreferrer" className="mt-auto inline-flex w-max items-center justify-center rounded-full border border-white/10 px-4 sm:px-5 py-2 sm:py-3 text-xs sm:text-sm text-slate-200 hover:bg-white/5">Live</a>

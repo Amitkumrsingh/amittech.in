@@ -3,26 +3,31 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from '../lib/motion'
 import motionTheme from '../lib/motionTheme'
-import { getBlogCategories, getFeaturedPost, getLatestPosts } from '../lib/blog'
-import type { BlogCategory, BlogPost } from '../data/blog'
+import { getBlogCategories, getBlogPosts, getFeaturedPost, getLatestPosts } from '../lib/blog'
+import {
+  BLOG_FILTER_ALL,
+  BLOG_INITIAL_VISIBLE_POSTS,
+  BLOG_LOAD_MORE_COUNT,
+  filterBlogPosts,
+  getBlogCategoryCount,
+  type BlogCategory,
+  type BlogCategoryFilter,
+  type BlogPost
+} from '../features/blog'
 import BlogCard from './BlogCard'
 import FeaturedBlogCard from './FeaturedBlogCard'
 
-const ALL_CATEGORIES = 'All Notes'
-const INITIAL_VISIBLE_POSTS = 10
-
-type CategoryFilter = typeof ALL_CATEGORIES | BlogCategory
-
 export default function BlogSection() {
-  const featuredPost = getFeaturedPost()
-  const latestPosts = getLatestPosts()
-  const categories = getBlogCategories()
-  const [activeCategory, setActiveCategory] = useState<CategoryFilter>(ALL_CATEGORIES)
+  const allPosts = useMemo(() => getBlogPosts(), [])
+  const featuredPost = useMemo(() => getFeaturedPost(allPosts), [allPosts])
+  const latestPosts = useMemo(() => getLatestPosts(allPosts), [allPosts])
+  const categories = useMemo(() => getBlogCategories(), [])
+  const [activeCategory, setActiveCategory] = useState<BlogCategoryFilter>(BLOG_FILTER_ALL)
   const [query, setQuery] = useState('')
-  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_POSTS)
+  const [visibleCount, setVisibleCount] = useState(BLOG_INITIAL_VISIBLE_POSTS)
 
   const filteredPosts = useMemo(() => {
-    return filterPosts(latestPosts, activeCategory, query)
+    return filterBlogPosts(latestPosts, activeCategory, query)
   }, [activeCategory, latestPosts, query])
 
   const visiblePosts = filteredPosts.slice(0, visibleCount)
@@ -32,7 +37,7 @@ export default function BlogSection() {
   const hasMore = visibleCount < filteredPosts.length
 
   useEffect(() => {
-    setVisibleCount(INITIAL_VISIBLE_POSTS)
+    setVisibleCount(BLOG_INITIAL_VISIBLE_POSTS)
   }, [activeCategory, query])
 
   return (
@@ -139,7 +144,7 @@ export default function BlogSection() {
             <div className="mt-8 flex justify-center border-t border-white/10 pt-8">
               <button
                 type="button"
-                onClick={() => setVisibleCount(count => count + 6)}
+                onClick={() => setVisibleCount(count => count + BLOG_LOAD_MORE_COUNT)}
                 className="inline-flex h-12 items-center justify-center rounded-full border border-white/10 bg-white/5 px-7 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:border-secondary/70 hover:bg-white/10"
               >
                 Load more notes
@@ -169,17 +174,17 @@ function CategoryFilters({
 }: {
   categories: readonly BlogCategory[]
   posts: BlogPost[]
-  activeCategory: CategoryFilter
-  onChange: (category: CategoryFilter) => void
+  activeCategory: BlogCategoryFilter
+  onChange: (category: BlogCategoryFilter) => void
 }) {
-  const filters: CategoryFilter[] = [ALL_CATEGORIES, ...categories]
+  const filters: BlogCategoryFilter[] = [BLOG_FILTER_ALL, ...categories]
 
   return (
     <motion.div className="mt-5 grid gap-2" variants={motionTheme.variants.containerStagger(0.025)} initial="hidden" animate="show">
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Sections</p>
       {filters.map((category, index) => {
         const active = activeCategory === category
-        const count = category === ALL_CATEGORIES ? posts.length : posts.filter(post => post.category === category).length
+        const count = getBlogCategoryCount(posts, category)
 
         return (
           <motion.button
@@ -198,27 +203,4 @@ function CategoryFilters({
       })}
     </motion.div>
   )
-}
-
-function filterPosts(posts: BlogPost[], activeCategory: CategoryFilter, query: string) {
-  const normalizedQuery = query.trim().toLowerCase()
-
-  return posts.filter(post => {
-    const categoryMatch = activeCategory === ALL_CATEGORIES || post.category === activeCategory
-    if (!categoryMatch) return false
-
-    if (!normalizedQuery) return true
-
-    const searchText = [
-      post.title,
-      post.summary,
-      post.hook,
-      post.category,
-      ...post.tags,
-      ...post.takeaways,
-      ...post.productionNotes
-    ].join(' ').toLowerCase()
-
-    return searchText.includes(normalizedQuery)
-  })
 }

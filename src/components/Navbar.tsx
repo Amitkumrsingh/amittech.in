@@ -1,77 +1,21 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import ResumeButton from './ResumeButton'
 import { buttonClassName } from './ButtonLink'
-
-const RESUME_FILE = 'Amit_Kumar_Singh_Resume.pdf'
-
-const NAV_LINKS = [
-  { label: 'Home', href: '/#hero', section: 'hero' },
-  { label: 'About', href: '/#about', section: 'about' },
-  { label: 'Experience', href: '/#experience', section: 'experience' },
-  { label: 'Projects', href: '/#projects', section: 'projects' },
-  { label: 'Skills', href: '/#expertise', section: 'expertise' },
-  { label: 'Blog', href: '/blog', section: 'blog' },
-  { label: 'Contact', href: '/#contact', section: 'contact' }
-]
-
-const HOME_SECTION_IDS = NAV_LINKS
-  .map(link => link.section)
-  .filter(section => section !== 'blog')
+import { HOME_SECTION_IDS, NAV_LINKS, RESUME_FILE, type NavLinkItem } from '../lib/site'
+import { useActiveSection } from '../hooks/useActiveSection'
 
 export default function Navbar() {
   const pathname = usePathname()
-  const [activeSection, setActiveSection] = useState('hero')
+  const { activeSection, setActiveSection } = useActiveSection({
+    pathname,
+    sectionIds: HOME_SECTION_IDS,
+    defaultSectionId: 'hero'
+  })
   const [open, setOpen] = useState(false)
-
-  useEffect(() => {
-    const currentPath = pathname || '/'
-
-    if (currentPath !== '/') {
-      setActiveSection(currentPath.startsWith('/blog') ? 'blog' : '')
-      return
-    }
-
-    let frame = 0
-
-    const getSections = () => HOME_SECTION_IDS
-      .map(section => document.getElementById(section))
-      .filter(Boolean) as HTMLElement[]
-
-    const updateActiveSection = () => {
-      const sections = getSections()
-      if (sections.length === 0) return
-
-      const activationPoint = window.scrollY + Math.min(window.innerHeight * 0.38, 320)
-      const active = sections.reduce((current, section) => {
-        return section.offsetTop <= activationPoint ? section.id : current
-      }, sections[0].id)
-
-      const bottomReached = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2
-      setActiveSection(bottomReached ? sections[sections.length - 1].id : active)
-    }
-
-    const scheduleUpdate = () => {
-      if (frame) return
-      frame = window.requestAnimationFrame(() => {
-        frame = 0
-        updateActiveSection()
-      })
-    }
-
-    updateActiveSection()
-    window.addEventListener('scroll', scheduleUpdate, { passive: true })
-    window.addEventListener('resize', scheduleUpdate)
-
-    return () => {
-      if (frame) window.cancelAnimationFrame(frame)
-      window.removeEventListener('scroll', scheduleUpdate)
-      window.removeEventListener('resize', scheduleUpdate)
-    }
-  }, [pathname])
 
   return (
     <header className="fixed inset-x-0 top-3 z-[998] px-3 sm:top-4 sm:px-6">
@@ -147,7 +91,7 @@ function NavLink({
   active,
   onSelect
 }: {
-  link: typeof NAV_LINKS[number]
+  link: NavLinkItem
   active: boolean
   onSelect: () => void
 }) {

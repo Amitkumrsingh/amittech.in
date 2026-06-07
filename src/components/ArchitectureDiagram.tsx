@@ -1,10 +1,12 @@
 "use client"
 
 import { useState, useRef, useEffect } from 'react'
+import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react'
+import type { Project } from '../features/projects'
 
 type Node = { id: string; x: number; y: number; w?: number; h?: number; label: string }
 
-export default function ArchitectureDiagram({ project }: any) {
+export default function ArchitectureDiagram({ project }: { project: Project }) {
   const svgRef = useRef<SVGSVGElement | null>(null)
   const [nodes, setNodes] = useState<Node[]>(() => [
     { id: 'client', x: 60, y: 40, label: 'Client UI' },
@@ -21,7 +23,8 @@ export default function ArchitectureDiagram({ project }: any) {
   useEffect(() => {
     function onPointerMove(e: PointerEvent) {
       if (!dragging) return
-      const rect = svgRef.current!.getBoundingClientRect()
+      const rect = svgRef.current?.getBoundingClientRect()
+      if (!rect) return
       const nx = e.clientX - rect.left - offset.x
       const ny = e.clientY - rect.top - offset.y
       setNodes(n => n.map(node => node.id === dragging ? { ...node, x: nx, y: ny } : node))
@@ -32,13 +35,13 @@ export default function ArchitectureDiagram({ project }: any) {
     return () => { window.removeEventListener('pointermove', onPointerMove); window.removeEventListener('pointerup', onPointerUp) }
   }, [dragging, offset])
 
-  function handlePointerDown(e: React.PointerEvent, id: string) {
+  function handlePointerDown(e: ReactPointerEvent, id: string) {
     const rect = (e.target as Element).getBoundingClientRect()
     setDragging(id)
     setOffset({ x: e.clientX - rect.left, y: e.clientY - rect.top })
   }
 
-  function handleKeyDown(e: React.KeyboardEvent, id: string) {
+  function handleKeyDown(e: ReactKeyboardEvent, id: string) {
     const step = e.shiftKey ? 10 : 4
     if (!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) return
     e.preventDefault()
@@ -78,7 +81,7 @@ export default function ArchitectureDiagram({ project }: any) {
             tabIndex={0}
             onFocus={() => setFocused(n.id)}
             onBlur={() => setFocused(null)}
-            onKeyDown={(e) => handleKeyDown(e as any, n.id)}
+            onKeyDown={(e) => handleKeyDown(e, n.id)}
             role="button"
             aria-label={n.label}
           />

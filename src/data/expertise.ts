@@ -1,9 +1,8 @@
-export type SkillCategory = {
-  title: string
-  items: string[]
-}
+import type { SkillCategory as SkillCategoryShape } from '../features/expertise'
 
-export const SKILL_CATEGORIES: SkillCategory[] = [
+export type { SkillCategory } from '../features/expertise'
+
+export const SKILL_CATEGORIES = [
   {
     title: 'Frontend',
     items: ['React.js', 'Redux', 'HTML5', 'CSS3', 'Material UI', 'Responsive Design']
@@ -28,7 +27,7 @@ export const SKILL_CATEGORIES: SkillCategory[] = [
     title: 'Architecture',
     items: ['Microservices', 'Distributed Systems', 'System Design', 'Scalable Backend Systems']
   }
-]
+] satisfies SkillCategoryShape[]
 
 export const SKILL_DETAILS: Record<string, string> = {
   'React.js': 'Built responsive platform interfaces and admin workflows.',

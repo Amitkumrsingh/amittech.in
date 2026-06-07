@@ -2,9 +2,21 @@
 
 import { useState } from 'react'
 import { motion } from '../lib/motion'
+import TagList from './TagList'
+
+type TimelineItem = {
+  id: string
+  company: string
+  title: string
+  role: string
+  period: string
+  short: string
+  tech: string[]
+  impact: string[]
+}
 
 type Props = {
-  items: any[]
+  items: TimelineItem[]
   filter?: string | null
 }
 
@@ -13,7 +25,7 @@ export default function Timeline({ items, filter = null }: Props) {
 
   return (
     <div className="space-y-6" role="list">
-      {items.map((it: any, idx: number) => {
+      {items.map((it, idx) => {
         const matchesFilter = !filter || it.tech.includes(filter)
         return (
           <motion.div
@@ -63,14 +75,12 @@ export default function Timeline({ items, filter = null }: Props) {
                   </div>
                 </div>
 
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {it.tech.map((t: string) => <span key={t} className="px-2 py-1 text-xs rounded-full bg-white/5">{t}</span>)}
-                </div>
+                <TagList items={it.tech} className="mt-3" itemClassName="bg-white/5 px-2 py-1" />
 
                 <div className="mt-3">
                   <strong className="text-sm">Impact</strong>
                   <ul className="mt-2 list-disc list-inside text-sm">
-                    {it.impact.map((m: string) => <li key={m}>{m}</li>)}
+                    {it.impact.map(m => <li key={m}>{m}</li>)}
                   </ul>
                 </div>
               </div>

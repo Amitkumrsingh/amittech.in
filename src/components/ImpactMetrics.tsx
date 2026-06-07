@@ -1,6 +1,7 @@
 import { motion } from '../lib/motion'
 import motionTheme from '../lib/motionTheme'
-import { IMPACT_METRICS, type ImpactMetric } from '../data/metrics'
+import { IMPACT_METRICS } from '../data/metrics'
+import type { ImpactMetric } from '../features/impact'
 import SectionHeader from './SectionHeader'
 
 export default function ImpactMetrics() {

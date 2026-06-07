@@ -2,8 +2,10 @@
 
 import { useState } from 'react'
 import { motion } from '../lib/motion'
-import { EXPERIENCE, type ExperienceRole } from '../data/experience'
+import { EXPERIENCE } from '../data/experience'
+import type { ExperienceRole } from '../features/experience'
 import SectionHeader from './SectionHeader'
+import TagList from './TagList'
 
 const DEFAULT_EXPERIENCE_ID = EXPERIENCE[0]?.id ?? null
 
@@ -91,11 +93,11 @@ function ExperienceDetails({ role }: { role: ExperienceRole }) {
         <ul className="mt-4 sm:mt-5 space-y-2 sm:space-y-3 text-xs sm:text-sm text-slate-300">
           {points.map(point => <li key={point} className="list-disc list-inside">{point}</li>)}
         </ul>
-        <div className="mt-4 sm:mt-6 flex flex-wrap gap-2">
-          {role.tech.map(skill => (
-            <span key={skill} className="rounded-full border border-white/10 bg-white/5 px-2 sm:px-3 py-1 text-xs text-slate-200">{skill}</span>
-          ))}
-        </div>
+        <TagList
+          items={role.tech}
+          className="mt-4 sm:mt-6"
+          itemClassName="border border-white/10 bg-white/5 px-2 sm:px-3 py-1 text-slate-200"
+        />
       </motion.div>
     </div>
   )

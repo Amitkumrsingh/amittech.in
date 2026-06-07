@@ -1,4 +1,5 @@
 // Analytics event tracking with validation and logging
+import { getABExperimentVariant } from './abTesting'
 
 export type AnalyticsEvent = 
   | 'page_load'
@@ -13,7 +14,7 @@ export type AnalyticsEvent =
 export interface AnalyticsPayload {
   event: AnalyticsEvent
   timestamp: string
-  properties: Record<string, any>
+  properties: Record<string, unknown>
 }
 
 const isDev = process.env.NODE_ENV === 'development'
@@ -25,7 +26,7 @@ export function validateEvent(payload: AnalyticsPayload): boolean {
   return true
 }
 
-export function logAnalyticsEvent(event: AnalyticsEvent, properties: Record<string, any> = {}) {
+export function logAnalyticsEvent(event: AnalyticsEvent, properties: Record<string, unknown> = {}) {
   const payload: AnalyticsPayload = {
     event,
     timestamp: new Date().toISOString(),
@@ -44,9 +45,7 @@ export function logAnalyticsEvent(event: AnalyticsEvent, properties: Record<stri
 
   // Add A/B experiment variant if available
   try {
-    const { useABExperiment } = require('./abTesting')
-    const { variant } = useABExperiment('motion_engagement')
-    payload.properties.abExperimentVariant = variant
+    payload.properties.abExperimentVariant = getABExperimentVariant('motion_engagement')
   } catch (e) {
     // A/B testing not available
   }
@@ -66,9 +65,9 @@ export function logAnalyticsEvent(event: AnalyticsEvent, properties: Record<stri
     }).catch(e => isDev && console.warn('Analytics server failed:', e))
 
     // Client-side GA4 if available
-    if (typeof window !== 'undefined' && (window as any).gtag) {
+    if (typeof window !== 'undefined' && window.gtag) {
       try {
-        (window as any).gtag('event', event, payload.properties)
+        window.gtag('event', event, payload.properties)
       } catch (e) {
         isDev && console.warn('GA4 event failed:', e)
       }

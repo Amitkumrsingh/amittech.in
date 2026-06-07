@@ -1,20 +1,8 @@
-export type Project = {
-  id: string
-  title: string
-  company: string
-  period: string
-  role: string
-  businessProblem: string
-  scale: string
-  architecture: string
-  tech: string[]
-  impact: string[]
-  challenges: string[]
-  sampleCode: string
-  demoLink?: string
-}
+import type { Project as ProjectShape } from '../features/projects'
 
-export const PROJECTS: Project[] = [
+export type { Project } from '../features/projects'
+
+export const PROJECTS = [
   {
     id: 'distributed-hrms',
     title: 'Distributed HRMS Platform',
@@ -125,4 +113,4 @@ function normalizeForm(values) {
 }
 `
   }
-]
+] satisfies ProjectShape[]

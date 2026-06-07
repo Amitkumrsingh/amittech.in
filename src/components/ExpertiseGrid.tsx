@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { motion } from '../lib/motion'
 import motionTheme from '../lib/motionTheme'
 import { trackSkillSelect } from '../lib/analytics'
-import { SKILL_CATEGORIES, SKILL_DETAILS, type SkillCategory } from '../data/expertise'
+import { SKILL_CATEGORIES, SKILL_DETAILS } from '../data/expertise'
+import type { SkillCategory } from '../features/expertise'
 import SectionHeader from './SectionHeader'
 
 export default function ExpertiseGrid() {

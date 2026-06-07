@@ -1,13 +1,8 @@
-export type ExperienceRole = {
-  id: string
-  company: string
-  role: string
-  period: string
-  tech: string[]
-  highlights: string[]
-}
+import type { ExperienceRole as ExperienceRoleShape } from '../features/experience'
 
-export const EXPERIENCE: ExperienceRole[] = [
+export type { ExperienceRole } from '../features/experience'
+
+export const EXPERIENCE = [
   {
     id: 'delhivery',
     company: 'Delhivery',
@@ -51,4 +46,4 @@ export const EXPERIENCE: ExperienceRole[] = [
       'Built CI/CD pipelines that reduced deployment effort by 80%.'
     ]
   }
-]
+] satisfies ExperienceRoleShape[]

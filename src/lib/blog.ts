@@ -1,8 +1,9 @@
-import { BLOG_CATEGORIES, BLOG_POSTS, type BlogCategory, type BlogPost } from '../data/blog'
+import { BLOG_POSTS } from '../data/blog'
+import { BLOG_CATEGORIES, type BlogCategory, type BlogPost } from '../features/blog'
 import { absoluteUrl, SITE_NAME, SITE_URL } from './site'
 
 type BlogSourceAdapter = {
-  listPosts: () => BlogPost[]
+  listPosts: () => readonly BlogPost[]
   listCategories: () => readonly BlogCategory[]
   getPostBySlug: (slug: string) => BlogPost | undefined
 }
@@ -18,16 +19,16 @@ const staticBlogSource: BlogSourceAdapter = {
 const blogSource: BlogSourceAdapter = staticBlogSource
 
 export function getBlogPosts() {
-  return [...blogSource.listPosts()].sort((a, b) => b.publishDate.localeCompare(a.publishDate))
+  return sortPostsByPublishDate(blogSource.listPosts())
 }
 
-export function getFeaturedPost() {
-  return getBlogPosts().find(post => post.featured) ?? getBlogPosts()[0]
+export function getFeaturedPost(posts = getBlogPosts()) {
+  return posts.find(post => post.featured) ?? posts[0]
 }
 
-export function getLatestPosts() {
-  const featured = getFeaturedPost()
-  return getBlogPosts().filter(post => post.slug !== featured?.slug)
+export function getLatestPosts(posts = getBlogPosts()) {
+  const featured = getFeaturedPost(posts)
+  return posts.filter(post => post.slug !== featured?.slug)
 }
 
 export function getBlogCategories() {
@@ -58,6 +59,10 @@ export function getRelatedPosts(post: BlogPost, limit = 3) {
       return bTagScore - aTagScore
     })
     .slice(0, limit)
+}
+
+function sortPostsByPublishDate(posts: readonly BlogPost[]) {
+  return [...posts].sort((a, b) => b.publishDate.localeCompare(a.publishDate))
 }
 
 export function formatPublishDate(date: string) {

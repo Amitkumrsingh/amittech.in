@@ -1,13 +1,14 @@
 "use client"
 
 import { useRef } from 'react'
+import type { ButtonHTMLAttributes, MouseEvent } from 'react'
 
-type Props = React.ButtonHTMLAttributes<HTMLButtonElement>
+type Props = ButtonHTMLAttributes<HTMLButtonElement>
 
 export default function MicroButton(props: Props) {
   const ref = useRef<HTMLButtonElement | null>(null)
 
-  function handleMouseDown(e: React.MouseEvent<HTMLButtonElement>) {
+  function handleMouseDown(e: MouseEvent<HTMLButtonElement>) {
     const btn = ref.current
     if (!btn) return
     const rect = btn.getBoundingClientRect()

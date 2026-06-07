@@ -3,10 +3,11 @@
 import Link from 'next/link'
 import { motion } from '../lib/motion'
 import motionTheme from '../lib/motionTheme'
-import type { BlogPost } from '../data/blog'
+import type { BlogPost } from '../features/blog'
 import { getBlogPostPath } from '../lib/blog'
+import ArticleMeta from './ArticleMeta'
+import ArticleTags from './ArticleTags'
 import BlogCover from './BlogCover'
-import { ArticleMeta, ArticleTags } from './BlogCard'
 
 export default function FeaturedBlogCard({ post }: { post: BlogPost }) {
   return (

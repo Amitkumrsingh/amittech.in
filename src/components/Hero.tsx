@@ -4,23 +4,8 @@ import { motion } from '../lib/motion'
 import ResumeButton from './ResumeButton'
 import DownloadCounter from './DownloadCounter'
 import ButtonLink, { buttonClassName } from './ButtonLink'
-
-const RESUME_FILE = 'Amit_Kumar_Singh_Resume.pdf'
-
-const IMPACT = [
-  { value: '300K+', label: 'employees served' },
-  { value: '60%', label: 'faster onboarding' },
-  { value: '35%', label: 'DB performance gain' },
-  { value: '80%', label: 'less deployment effort' }
-]
-
-const SYSTEM_NODES = [
-  { label: 'APIs', className: 'left-[12%] top-[24%]' },
-  { label: 'Kafka', className: 'left-[43%] top-[12%]' },
-  { label: 'Redis', className: 'right-[12%] top-[30%]' },
-  { label: 'DB', className: 'left-[22%] bottom-[18%]' },
-  { label: 'Cloud', className: 'right-[20%] bottom-[14%]' }
-]
+import { RESUME_FILE } from '../lib/site'
+import { HERO_IMPACT_METRICS, HERO_SYSTEM_NODES } from '../features/home'
 
 export default function Hero() {
   return (
@@ -90,7 +75,7 @@ function SystemMap() {
         className="absolute h-2 w-2 rounded-full bg-accent shadow-[0_0_24px_rgba(236,72,153,0.8)] [offset-path:path('M_360_210_C_270_300_130_292_58_188')]"
       />
 
-      {SYSTEM_NODES.map(node => (
+      {HERO_SYSTEM_NODES.map(node => (
         <div key={node.label} className={`absolute ${node.className}`}>
           <div className="rounded-2xl border border-white/10 bg-[#0A0A0F]/70 px-3 py-2 text-xs font-semibold text-slate-200 backdrop-blur">
             {node.label}
@@ -124,7 +109,7 @@ function ProductionConsole() {
 function ImpactPanel() {
   return (
     <div className="relative mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      {IMPACT.map(metric => (
+      {HERO_IMPACT_METRICS.map(metric => (
         <div key={metric.label} className="rounded-3xl border border-white/10 bg-white/[0.055] p-4 backdrop-blur-2xl">
           <p className="text-2xl font-semibold text-white sm:text-3xl">{metric.value}</p>
           <p className="mt-2 text-xs uppercase tracking-[0.18em] text-slate-400">{metric.label}</p>

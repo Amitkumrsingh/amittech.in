@@ -1,9 +1,10 @@
 "use client"
 
+import type { ReactNode } from 'react'
 import { motion } from '../lib/motion'
 import { useMotion } from '../lib/motionContext'
 
-export default function PageTransition({ children }: { children: React.ReactNode }) {
+export default function PageTransition({ children }: { children: ReactNode }) {
   const { enabled: motionEnabled } = useMotion()
 
   return (

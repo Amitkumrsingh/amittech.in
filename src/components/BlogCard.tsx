@@ -3,9 +3,11 @@
 import Link from 'next/link'
 import { motion } from '../lib/motion'
 import motionTheme from '../lib/motionTheme'
-import type { BlogPost } from '../data/blog'
-import { formatPublishDate, getBlogPostPath } from '../lib/blog'
+import type { BlogPost } from '../features/blog'
+import { getBlogPostPath } from '../lib/blog'
 import { cn } from '../lib/classes'
+import ArticleMeta from './ArticleMeta'
+import ArticleTags from './ArticleTags'
 import BlogCover from './BlogCover'
 
 type BlogCardProps = {
@@ -64,29 +66,5 @@ function CompactArticle({ post, index }: { post: BlogPost; index: number }) {
       </Link>
       <p className="mt-3 text-sm leading-6 text-slate-400">{post.hook}</p>
     </motion.article>
-  )
-}
-
-export function ArticleMeta({ post }: { post: BlogPost }) {
-  return (
-    <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-      <span className="text-secondary">{post.category}</span>
-      <span className="text-slate-700">/</span>
-      <span>{formatPublishDate(post.publishDate)}</span>
-      <span className="text-slate-700">/</span>
-      <span>{post.readingMinutes} min read</span>
-    </div>
-  )
-}
-
-export function ArticleTags({ tags, limit = 4 }: { tags: string[]; limit?: number }) {
-  return (
-    <div className="mt-5 flex flex-wrap gap-2">
-      {tags.slice(0, limit).map(tag => (
-        <span key={tag} className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-slate-300">
-          {tag}
-        </span>
-      ))}
-    </div>
   )
 }

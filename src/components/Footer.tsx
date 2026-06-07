@@ -1,31 +1,16 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { GITHUB_PROFILE_URL, SITE_AUTHOR_SHORT_NAME, SOCIAL_LINKS } from '../lib/site'
+import { useCurrentYear } from '../hooks/useCurrentYear'
 
-const SOCIAL_LINKS = [
-  {
-    label: 'Email Amit',
-    href: 'mailto:aksingh1109@gmail.com',
-    icon: <MailIcon />
-  },
-  {
-    label: 'GitHub',
-    href: 'https://github.com/Amitkumrsingh',
-    icon: <GitHubIcon />
-  },
-  {
-    label: 'LinkedIn',
-    href: 'https://www.linkedin.com/in/amitkumrsingh/',
-    icon: <LinkedInIcon />
-  }
-]
+const SOCIAL_ICONS = {
+  email: <MailIcon />,
+  github: <GitHubIcon />,
+  linkedin: <LinkedInIcon />
+} as const
 
 export default function Footer() {
-  const [year, setYear] = useState('2026')
-
-  useEffect(() => {
-    setYear(String(new Date().getFullYear()))
-  }, [])
+  const year = useCurrentYear()
 
   return (
     <footer className="px-4 pb-8 pt-8 sm:px-6">
@@ -33,12 +18,12 @@ export default function Footer() {
         <p>
           © {year} · Made with <span className="text-accent">♥</span> by{' '}
           <a
-            href="https://github.com/Amitkumrsingh"
+            href={GITHUB_PROFILE_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="font-semibold text-white transition hover:text-secondary"
           >
-            Amit Kumar
+            {SITE_AUTHOR_SHORT_NAME}
           </a>
         </p>
 
@@ -53,7 +38,7 @@ export default function Footer() {
               title={link.label}
               className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-white/[0.04] text-slate-300 transition hover:border-secondary/60 hover:bg-secondary/10 hover:text-secondary"
             >
-              {link.icon}
+              {SOCIAL_ICONS[link.id]}
             </a>
           ))}
         </div>

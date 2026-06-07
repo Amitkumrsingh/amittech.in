@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from 'react'
+import type { MouseEvent } from 'react'
 import MicroButton from './MicroButton'
-import { recordExperimentMetric } from '../lib/abTesting'
+import { useResumeDownload } from '../features/resume'
 
 type Props = {
   href: string
@@ -12,77 +12,11 @@ type Props = {
 }
 
 export default function ResumeButton({ href, filename, label = 'Download Resume', className = '' }: Props) {
-  const [loading, setLoading] = useState(false)
+  const { loading, download } = useResumeDownload({ href, filename })
 
-  async function handleClick(e: React.MouseEvent<HTMLButtonElement>) {
+  async function handleClick(e: MouseEvent<HTMLButtonElement>) {
     e.preventDefault()
-    setLoading(true)
-
-    const payload = { event: 'resume_download', file: filename || href, ts: new Date().toISOString() }
-
-    // Client-side forwarding to public analytics providers (only using NEXT_PUBLIC keys)
-    try {
-      const provider = process.env.NEXT_PUBLIC_ANALYTICS_PROVIDER
-      if (provider === 'mixpanel' && process.env.NEXT_PUBLIC_MIXPANEL_TOKEN) {
-        const token = process.env.NEXT_PUBLIC_MIXPANEL_TOKEN
-        const event = { event: 'resume_download', properties: { token, file: payload.file, ts: payload.ts } }
-        const encoded = typeof window !== 'undefined' ? btoa(JSON.stringify(event)) : ''
-        if (encoded) {
-          fetch('https://api.mixpanel.com/track?verbose=1', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: `data=${encodeURIComponent(encoded)}`
-          }).catch(() => {})
-        }
-      } else if (provider === 'ga4' && typeof window !== 'undefined') {
-        const gtag = (window as any).gtag
-        if (typeof gtag === 'function') {
-          try { gtag('event', 'resume_download', { file: payload.file, ts: payload.ts }) } catch (e) {}
-        } else if ((window as any).dataLayer) {
-          (window as any).dataLayer.push({ event: 'resume_download', file: payload.file, ts: payload.ts })
-        }
-      }
-    } catch (err) {
-      console.warn('client analytics failed', err)
-    }
-
-    const trackDownload = async () => {
-      try {
-        const res = await fetch('/api/track-download', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-          cache: 'no-store'
-        })
-
-        if (!res.ok) return null
-        return await res.json()
-      } catch (err) {
-        console.warn('track-download failed', err)
-        return null
-      }
-    }
-
-    const tracking = trackDownload()
-
-    // Trigger the download while still inside the click interaction.
-    const a = document.createElement('a')
-    a.href = href
-    if (filename) a.download = filename
-    a.rel = 'noopener noreferrer'
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-
-    try {
-      const result = await tracking
-      window.dispatchEvent(new CustomEvent('resume:downloaded', {
-        detail: typeof result?.downloads === 'number' ? { downloads: Number(result.downloads), storage: result.storage } : undefined
-      }))
-      recordExperimentMetric('motion_engagement', 'resumeDownloaded', true)
-    } catch (e) {}
-
-    setLoading(false)
+    await download()
   }
 
   return (

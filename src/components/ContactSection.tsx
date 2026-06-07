@@ -2,8 +2,7 @@ import ButtonLink, { buttonClassName } from './ButtonLink'
 import DownloadCounter from './DownloadCounter'
 import ResumeButton from './ResumeButton'
 import SectionHeader from './SectionHeader'
-
-const RESUME_FILE = 'Amit_Kumar_Singh_Resume.pdf'
+import { CONTACT_EMAIL, RESUME_FILE } from '../lib/site'
 
 export default function ContactSection() {
   return (
@@ -18,7 +17,7 @@ export default function ContactSection() {
         />
 
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
-          <ButtonLink href="mailto:aksingh1109@gmail.com" variant="secondary" size="contact" radius="full" className="shrink-0">
+          <ButtonLink href={`mailto:${CONTACT_EMAIL}`} variant="secondary" size="contact" radius="full" className="shrink-0">
             Email me
           </ButtonLink>
           <div className="flex items-center gap-3">

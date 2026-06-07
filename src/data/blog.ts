@@ -1,43 +1,9 @@
-export const BLOG_CATEGORIES = [
-  'Production Engineering',
-  'Distributed Systems',
-  'System Design',
-  'Databases',
-  'AI Engineering',
-  'Career'
-] as const
+import type { BlogPost as BlogPostShape } from '../features/blog'
 
-export type BlogCategory = typeof BLOG_CATEGORIES[number]
+export { BLOG_CATEGORIES } from '../features/blog'
+export type { BlogCategory, BlogPost, BlogSection } from '../features/blog'
 
-export type BlogSection = {
-  id: string
-  title: string
-  body: string[]
-}
-
-export type BlogPost = {
-  slug: string
-  title: string
-  category: BlogCategory
-  publishDate: string
-  readingMinutes: number
-  summary: string
-  hook: string
-  tags: string[]
-  featured?: boolean
-  cover: {
-    kicker: string
-    metric: string
-    gradient: string
-    accent: string
-    motif: 'events' | 'database' | 'systems' | 'ai' | 'career' | 'cloud'
-  }
-  takeaways: string[]
-  sections: BlogSection[]
-  productionNotes: string[]
-}
-
-export const BLOG_POSTS: BlogPost[] = [
+export const BLOG_POSTS = [
   {
     slug: 'kafka-mistake-duplicate-events-production',
     title: 'The Kafka Mistake That Caused Duplicate Events in Production',
@@ -993,4 +959,4 @@ export const BLOG_POSTS: BlogPost[] = [
       'Tie observability to the workflow users care about.'
     ]
   }
-]
+] satisfies BlogPostShape[]

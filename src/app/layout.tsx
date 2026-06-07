@@ -1,4 +1,5 @@
 import '../styles/globals.css'
+import type { ReactNode } from 'react'
 import LayoutWrapper from '../components/LayoutWrapper'
 import { getOgImageUrl, SITE_NAME, SITE_URL } from '../lib/site'
 
@@ -26,7 +27,7 @@ export const metadata = {
   }
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>

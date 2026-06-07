@@ -2,10 +2,12 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { ReactNode } from 'react'
+import ArticleMeta from '../../../components/ArticleMeta'
 import ArticleReadingProgress from '../../../components/ArticleReadingProgress'
 import BlogCover from '../../../components/BlogCover'
 import JsonLd from '../../../components/JsonLd'
-import { getArticleSchema, formatPublishDate, getBlogPost, getBlogPostPath, getBlogPosts, getBlogPostUrl, getRelatedPosts } from '../../../lib/blog'
+import { getArticleTocItems } from '../../../features/blog'
+import { getArticleSchema, getBlogPost, getBlogPostPath, getBlogPosts, getBlogPostUrl, getRelatedPosts } from '../../../lib/blog'
 import { absoluteUrl, getOgImageUrl, SITE_NAME } from '../../../lib/site'
 
 type ArticlePageProps = {
@@ -56,11 +58,7 @@ export default function ArticlePage({ params }: ArticlePageProps) {
 
   const url = getBlogPostUrl(post)
   const relatedPosts = getRelatedPosts(post)
-  const tocItems = [
-    ...post.sections.map(section => ({ id: section.id, title: section.title })),
-    { id: 'lessons', title: 'What I took away' },
-    { id: 'production-notes', title: 'Production notes' }
-  ]
+  const tocItems = getArticleTocItems(post)
 
   return (
     <main className="relative px-4 pb-10 pt-24 sm:px-6 sm:pb-14 sm:pt-28">
@@ -75,13 +73,7 @@ export default function ArticlePage({ params }: ArticlePageProps) {
 
           <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-end">
             <div>
-              <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                <span className="text-secondary">{post.category}</span>
-                <span className="text-slate-700">/</span>
-                <span>{formatPublishDate(post.publishDate)}</span>
-                <span className="text-slate-700">/</span>
-                <span>{post.readingMinutes} min read</span>
-              </div>
+              <ArticleMeta post={post} />
               <h1 className="mt-5 max-w-5xl text-4xl font-display font-semibold leading-[1.02] text-white sm:text-6xl lg:text-7xl">{post.title}</h1>
               <p className="mt-6 max-w-3xl text-xl leading-9 text-slate-100">{post.hook}</p>
               <p className="mt-5 max-w-3xl text-base leading-8 text-slate-400">{post.summary}</p>
