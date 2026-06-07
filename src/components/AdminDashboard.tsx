@@ -466,6 +466,18 @@ export default function AdminDashboard() {
     }
   }
 
+  async function copyPostUrl(post = selectedPost) {
+    if (!post?.slug) return
+    const url = `${window.location.origin}/blog/${post.slug}`
+    try {
+      await navigator.clipboard.writeText(url)
+      setMessage('Post URL copied')
+      setError('')
+    } catch {
+      setError(url)
+    }
+  }
+
   const selectedPost = useMemo(() => posts.find(post => post.id === form.id), [form.id, posts])
   const filteredPosts = posts.filter(post => !post.deletedAt)
 
@@ -751,9 +763,18 @@ export default function AdminDashboard() {
                 <div className="flex items-center gap-2">
                   <StatusPill status={form.status} />
                   {selectedPost?.slug ? (
-                    <Link href={`/blog/${selectedPost.slug}`} className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-slate-300 transition hover:text-secondary">
-                      Open post
-                    </Link>
+                    <>
+                      <MicroButton
+                        type="button"
+                        onClick={() => copyPostUrl(selectedPost)}
+                        className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-slate-300 transition hover:text-secondary"
+                      >
+                        Copy URL
+                      </MicroButton>
+                      <Link href={`/blog/${selectedPost.slug}`} className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-slate-300 transition hover:text-secondary">
+                        Open post
+                      </Link>
+                    </>
                   ) : null}
                 </div>
               </div>

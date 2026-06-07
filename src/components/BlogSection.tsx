@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { motion } from '../lib/motion'
 import motionTheme from '../lib/motionTheme'
 import { getBlogCategories, getBlogCategoriesForPosts, getBlogPosts, getFeaturedPost, getLatestPosts } from '../lib/blog'
@@ -59,7 +60,15 @@ export default function BlogSection({ posts, categories: providedCategories }: B
             </p>
           </div>
 
-          <div className="grid gap-3 border-l border-white/10 pl-5 text-sm text-slate-400 sm:grid-cols-3 lg:max-w-sm lg:grid-cols-1">
+          <div className="grid gap-4 border-l border-white/10 pl-5 text-sm text-slate-400 sm:grid-cols-3 lg:max-w-sm lg:grid-cols-1">
+            <div className="sm:col-span-3 lg:col-span-1">
+              <Link
+                href="/admin"
+                className="inline-flex h-12 items-center justify-center rounded-full border border-secondary/40 bg-secondary px-5 text-sm font-semibold text-black shadow-[0_18px_70px_-35px_rgba(6,182,212,0.9)] transition hover:-translate-y-0.5 hover:bg-auroraTeal"
+              >
+                Write article
+              </Link>
+            </div>
             <EditorialStat label="Focus" value="Production lessons" />
             <EditorialStat label="Archive" value={`${latestPosts.length + (featuredPost ? 1 : 0)} field notes`} />
             <EditorialStat label="Voice" value="Story-driven engineering" />
@@ -92,6 +101,17 @@ export default function BlogSection({ posts, categories: providedCategories }: B
               activeCategory={activeCategory}
               onChange={setActiveCategory}
             />
+
+            <div className="mt-5 rounded-[22px] border border-secondary/20 bg-secondary/10 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-secondary">Writer tools</p>
+              <p className="mt-2 text-sm leading-6 text-slate-300">Create, edit, publish, and copy post URLs from the CMS dashboard.</p>
+              <Link
+                href="/admin"
+                className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-full bg-white px-4 text-sm font-semibold text-slate-950 transition hover:bg-secondary"
+              >
+                Open CMS
+              </Link>
+            </div>
           </div>
         </aside>
 
