@@ -1,0 +1,152 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  BANNED
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum MediaType {
+  IMAGE
+  GIF
+  VIDEO
+}
+
+model User {
+  id           String      @id @default(cuid())
+  name         String
+  email        String      @unique
+  profileImage String?
+  role         Role        @default(USER)
+  status       UserStatus  @default(ACTIVE)
+  posts        Post[]
+  media        Media[]
+  accounts     Account[]
+  sessions     Session[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  deletedAt    DateTime?
+
+  @@index([role])
+  @@index([status])
+}
+
+model Account {
+  id                String   @id @default(cuid())
+  provider          String
+  providerAccountId String
+  accessToken       String?
+  refreshToken      String?
+  expiresAt         DateTime?
+  scope             String?
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id               String    @id @default(cuid())
+  sessionTokenHash String    @unique
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  posts     Post[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  posts     Post[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Post {
+  id              String     @id @default(cuid())
+  title           String
+  slug            String     @unique
+  excerpt         String?
+  content         Json?
+  sanitizedHtml   String?
+  coverImage      String?
+  categoryId      String?
+  category        Category?  @relation(fields: [categoryId], references: [id])
+  tags            Tag[]
+  status          PostStatus @default(DRAFT)
+  readingTime     Int        @default(1)
+  authorId        String
+  author          User       @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  media           Media[]
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  publishedAt     DateTime?
+  metaTitle       String?
+  metaDescription String?
+  ogImage         String?
+  views           Int        @default(0)
+  isFeatured      Boolean    @default(false)
+  deletedAt       DateTime?
+
+  @@index([authorId])
+  @@index([status])
+  @@index([publishedAt])
+  @@index([isFeatured])
+  @@index([deletedAt])
+}
+
+model Media {
+  id           String    @id @default(cuid())
+  url          String
+  type         MediaType
+  filename     String
+  mimeType     String
+  size         Int
+  uploadedById String
+  uploadedBy   User      @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  postId       String?
+  post         Post?     @relation(fields: [postId], references: [id], onDelete: SetNull)
+  createdAt    DateTime  @default(now())
+  deletedAt    DateTime?
+
+  @@index([uploadedById])
+  @@index([postId])
+  @@index([type])
+  @@index([deletedAt])
+}
