@@ -2,7 +2,7 @@
 
 This project uses GlitchTip for error/performance monitoring through the Sentry-compatible Next.js SDK. It also exposes a lightweight health endpoint for uptime checks.
 
-GlitchTip is the monitoring backend. The `@sentry/nextjs` package remains in the code because GlitchTip accepts the Sentry SDK protocol. SDK build telemetry and source-map upload attempts are disabled in `next.config.js`.
+GlitchTip is the monitoring backend. The `@sentry/nextjs` package remains in the code because GlitchTip accepts the Sentry SDK protocol. SDK build telemetry, Sentry Cloud release creation, and source-map upload attempts are disabled in `next.config.js`.
 
 ## What Is Covered
 
