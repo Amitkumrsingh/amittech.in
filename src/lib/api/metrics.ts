@@ -37,7 +37,7 @@ type SlowRequestRow = {
   createdAt: Date
 }
 
-const EXCLUDED_METRIC_ROUTES = new Set(['/api/health', '/api/admin/metrics'])
+const EXCLUDED_METRIC_ROUTES = new Set(['/api/health', '/api/admin/metrics', '/api/admin/metrics/stream'])
 
 function toNumber(value: unknown, fallback = 0) {
   if (typeof value === 'bigint') return Number(value)

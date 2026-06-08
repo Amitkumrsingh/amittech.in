@@ -15,12 +15,13 @@ GlitchTip is the monitoring backend. The `@sentry/nextjs` package remains in the
 - Public uptime check at `/api/health`
 - Private super-admin API monitoring dashboard at `/admin/monitoring`
 - Per-endpoint request count, avg latency, p50, p95, max latency, and error rate
-- Live API metrics refresh through 5-second polling
+- Live API metrics refresh through Server-Sent Events
 
 ## Production URLs
 
 - Health check: `https://amittech.in/api/health`
 - API monitoring dashboard: `https://amittech.in/admin/monitoring`
+- API monitoring stream: `https://amittech.in/api/admin/metrics/stream?minutes=60`
 - GlitchTip dashboard: `https://app.glitchtip.com/`
 - GlitchTip SDK docs: `https://glitchtip.com/sdkdocs/`
 - Vercel environment variables: `https://vercel.com/dashboard`
@@ -86,15 +87,18 @@ The `/admin/monitoring` page is a super-admin-only API Monitoring dashboard. The
 
 It is powered by the `ApiMetric` PostgreSQL table and records API requests from the shared API handler plus resume download endpoints.
 
-The dashboard uses short polling instead of WebSockets or SSE because the app runs on Vercel serverless functions. Polling is simpler, cheaper, and avoids keeping serverless connections open.
+The dashboard uses Server-Sent Events instead of WebSockets. SSE is a good fit here because the browser only needs one-way metric updates from the server. The server pushes a fresh metrics snapshot every 5 seconds.
+
+Because the app runs on Vercel serverless functions, the stream intentionally closes after roughly 55 seconds and lets the browser reconnect automatically. This keeps the live feel without relying on a permanently open serverless connection.
 
 Live mode:
 
-- refreshes every 5 seconds
-- pauses when the browser tab is hidden
+- receives a fresh metrics snapshot every 5 seconds
+- reconnects automatically when the stream is closed by the platform
 - supports 15m, 1h, 6h, 24h, and 7d windows
 - shows a live traffic graph with request volume, average latency, and error markers
-- excludes `/api/health` and `/api/admin/metrics` from recorded traffic so uptime checks and dashboard polling do not pollute the numbers
+- uses slower fetch refresh only as a fallback if EventSource cannot connect
+- excludes `/api/health`, `/api/admin/metrics`, and `/api/admin/metrics/stream` from recorded traffic so uptime checks and dashboard reads do not pollute the numbers
 
 Stored fields are intentionally minimal:
 
@@ -116,7 +120,7 @@ Use these surfaces together:
 - GlitchTip Issues: exceptions with stack traces and request context.
 - GlitchTip Logs: structured warning/error logs emitted by the SDK.
 - GlitchTip Performance: sampled transaction traces.
-- `/admin/monitoring`: live traffic graph, per-route traffic, p50/p95 latency, error rate, and slowest requests.
+- `/admin/monitoring`: SSE-powered live traffic graph, per-route traffic, p50/p95 latency, error rate, and slowest requests.
 - Vercel Logs: raw serverless function logs for last-mile deployment/runtime debugging.
 
 The monitoring dashboard includes two super-admin-only test controls:

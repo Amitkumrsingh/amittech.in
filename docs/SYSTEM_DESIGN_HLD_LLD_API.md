@@ -55,7 +55,7 @@ flowchart LR
 | Auth Provider | Google Identity Services | Google ID token login |
 | Session Storage | PostgreSQL `Session` table | HttpOnly cookie-backed sessions |
 | Analytics | GA4/Mixpanel/Segment optional | Resume download event forwarding |
-| Monitoring | GlitchTip + `/api/health` + `ApiMetric` | Error capture, warn/error logs, traces, report-only security reports, uptime checks, live-polled API latency/traffic dashboard |
+| Monitoring | GlitchTip + `/api/health` + `ApiMetric` | Error capture, warn/error logs, traces, report-only security reports, uptime checks, SSE-powered API latency/traffic dashboard |
 
 ## LLD
 
@@ -84,7 +84,7 @@ flowchart LR
 | Module | File | Responsibility |
 |---|---|---|
 | Monitoring route | `src/app/admin/monitoring/page.tsx` | Private noindex route for API observability |
-| Monitoring UI | `src/components/ApiMonitoringDashboard.tsx` | Super-admin gate, live 5-second polling, traffic graph, endpoint latency table, slow request samples, GlitchTip test controls |
+| Monitoring UI | `src/components/ApiMonitoringDashboard.tsx` | Super-admin gate, SSE client, traffic graph, endpoint latency table, slow request samples, GlitchTip test controls |
 | Metrics aggregator | `src/lib/api/metrics.ts` | Route normalization, metric writes, retention pruning, summary/timeline/percentile queries |
 
 ### API Services
@@ -284,6 +284,7 @@ Indexes: `uploadedById`, `postId`, `type`, `deletedAt`.
 | `PATCH` | `/api/admin/users/:id/role` | `SUPER_ADMIN` | Update user role | `User.update` |
 | `PATCH` | `/api/admin/users/:id/status` | `SUPER_ADMIN` | Update user status; revoke sessions if inactive/banned | `User.update`, optional `Session.updateMany` |
 | `GET` | `/api/admin/metrics` | `SUPER_ADMIN` | API traffic, latency percentiles, errors, timeline, slowest requests | `ApiMetric` aggregate queries |
+| `GET` | `/api/admin/metrics/stream` | `SUPER_ADMIN` | SSE stream that pushes metrics snapshots every 5 seconds | `ApiMetric` aggregate queries, EventSource reconnect |
 | `POST` | `/api/admin/monitoring-test` | `SUPER_ADMIN` | Trigger controlled GlitchTip log/error test | GlitchTip SDK log/error emission, `ApiMetric` row |
 
 ### Super Admin Pages
@@ -291,7 +292,7 @@ Indexes: `uploadedById`, `postId`, `type`, `deletedAt`.
 | Route | Auth | Functionality |
 |---|---|---|
 | `/admin` | Google session, mixed `USER`/`SUPER_ADMIN` behavior | CMS command center for writing and publishing posts |
-| `/admin/monitoring` | `SUPER_ADMIN` only | Live API traffic graph, latency/error dashboard, slow requests, monitoring test controls |
+| `/admin/monitoring` | `SUPER_ADMIN` only | SSE-powered live API traffic graph, latency/error dashboard, slow requests, monitoring test controls |
 
 ## Important Request/Response Contracts
 

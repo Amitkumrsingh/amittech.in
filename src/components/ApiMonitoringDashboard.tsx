@@ -68,7 +68,9 @@ type ApiMetricsResponse = {
   }>
 }
 
-const API_METRICS_POLL_INTERVAL_MS = 5000
+type StreamState = 'idle' | 'connecting' | 'open' | 'fallback' | 'paused'
+
+const API_METRICS_FALLBACK_INTERVAL_MS = 10000
 
 const rangeOptions = [
   { label: '15m', value: 15 },
@@ -113,6 +115,14 @@ function formatRange(minutes: number) {
   return `${Math.round(minutes / 1440)} days`
 }
 
+function getLiveStatusLabel(live: boolean, streamState: StreamState) {
+  if (!live || streamState === 'paused') return 'Paused'
+  if (streamState === 'open') return 'SSE live'
+  if (streamState === 'connecting') return 'SSE connecting'
+  if (streamState === 'fallback') return 'Fetch fallback'
+  return 'Starting'
+}
+
 export default function ApiMonitoringDashboard() {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
@@ -120,12 +130,14 @@ export default function ApiMonitoringDashboard() {
   const [metrics, setMetrics] = useState<ApiMetricsResponse | null>(null)
   const [rangeMinutes, setRangeMinutes] = useState(60)
   const [live, setLive] = useState(true)
+  const [streamState, setStreamState] = useState<StreamState>('idle')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [testMode, setTestMode] = useState<'log' | 'error' | null>(null)
 
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
+  const liveStatusLabel = getLiveStatusLabel(live, streamState)
 
   const refreshMe = useCallback(async () => {
     setAuthLoading(true)
@@ -163,26 +175,96 @@ export default function ApiMonitoringDashboard() {
   }, [refreshMe])
 
   useEffect(() => {
-    loadMetrics()
-  }, [loadMetrics])
+    if (!isSuperAdmin) {
+      setStreamState('idle')
+      return
+    }
 
-  useEffect(() => {
-    if (!isSuperAdmin || !live) return
+    if (!live) {
+      setStreamState('paused')
+      void loadMetrics({ silent: true })
+      return
+    }
 
-    const refreshLiveMetrics = () => {
-      if (document.visibilityState === 'visible') {
-        void loadMetrics({ silent: true })
+    if (!window.EventSource) {
+      setStreamState('fallback')
+      void loadMetrics({ silent: true })
+
+      const fallbackIntervalId = window.setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          void loadMetrics({ silent: true })
+        }
+      }, API_METRICS_FALLBACK_INTERVAL_MS)
+
+      return () => window.clearInterval(fallbackIntervalId)
+    }
+
+    let closed = false
+    let receivedFirstPayload = false
+    let fallbackIntervalId: number | undefined
+    const source = new EventSource(`/api/admin/metrics/stream?minutes=${rangeMinutes}`)
+
+    setStreamState('connecting')
+    setError('')
+
+    const startFallback = () => {
+      if (closed || fallbackIntervalId || receivedFirstPayload) return
+      source.close()
+      setStreamState('fallback')
+      void loadMetrics({ silent: true })
+      fallbackIntervalId = window.setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          void loadMetrics({ silent: true })
+        }
+      }, API_METRICS_FALLBACK_INTERVAL_MS)
+    }
+
+    const fallbackTimer = window.setTimeout(startFallback, 15000)
+
+    source.onopen = () => {
+      if (!closed) setStreamState('open')
+    }
+
+    source.addEventListener('metrics', event => {
+      if (closed) return
+      const message = event as MessageEvent<string>
+      receivedFirstPayload = true
+      window.clearTimeout(fallbackTimer)
+      setStreamState('open')
+      setError('')
+
+      try {
+        setMetrics(JSON.parse(message.data) as ApiMetricsResponse)
+      } catch {
+        setError('Unable to parse metrics stream payload')
+      }
+    })
+
+    source.addEventListener('stream-error', event => {
+      if (!closed) {
+        const message = event as MessageEvent<string>
+        try {
+          const payload = JSON.parse(message.data) as { message?: string }
+          setError(payload.message || 'Metrics stream returned an error')
+        } catch {
+          setError('Metrics stream returned an error')
+        }
+      }
+    })
+
+    source.onerror = () => {
+      if (!closed && !receivedFirstPayload) {
+        startFallback()
       }
     }
 
-    const intervalId = window.setInterval(refreshLiveMetrics, API_METRICS_POLL_INTERVAL_MS)
-    document.addEventListener('visibilitychange', refreshLiveMetrics)
-
     return () => {
-      window.clearInterval(intervalId)
-      document.removeEventListener('visibilitychange', refreshLiveMetrics)
+      closed = true
+      source.close()
+      window.clearTimeout(fallbackTimer)
+      if (fallbackIntervalId) window.clearInterval(fallbackIntervalId)
     }
-  }, [isSuperAdmin, live, loadMetrics])
+  }, [isSuperAdmin, live, loadMetrics, rangeMinutes])
 
   async function sendMonitoringTest(mode: 'log' | 'error') {
     setTestMode(mode)
@@ -224,7 +306,7 @@ export default function ApiMonitoringDashboard() {
             {isSuperAdmin ? (
               <span className={cn('inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em]', live ? 'border-secondary/30 bg-secondary/10 text-secondary' : 'border-white/10 bg-white/5 text-slate-400')}>
                 <span className={cn('h-2 w-2 rounded-full', live ? 'animate-pulse bg-secondary' : 'bg-slate-500')} />
-                {live ? 'Live 5s' : 'Paused'}
+                {liveStatusLabel}
               </span>
             ) : null}
           </div>
@@ -289,7 +371,9 @@ export default function ApiMonitoringDashboard() {
                   Last {formatRange(rangeMinutes)} - generated {metrics ? formatTime(metrics.generatedAt) : 'waiting'}
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-slate-400">
-                  Polling every 5 seconds while this tab is visible. The refresh API itself is not counted.
+                  {streamState === 'fallback'
+                    ? 'SSE could not stay connected, so a slower fallback refresh is active.'
+                    : 'SSE pushes updates every 5 seconds. Vercel reconnects the stream periodically to avoid long serverless connections.'}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
