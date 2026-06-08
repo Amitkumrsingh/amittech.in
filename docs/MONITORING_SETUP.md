@@ -9,6 +9,7 @@ GlitchTip is the monitoring backend. The `@sentry/nextjs` package remains in the
 - Browser runtime errors
 - React/App Router render errors
 - Server/API exceptions
+- Structured warn/error logs in GlitchTip Logs
 - Performance traces
 - Report-only security/CSP violation reports
 - Public uptime check at `/api/health`
@@ -50,6 +51,7 @@ API_METRICS_RETENTION_DAYS="30"
 6. Open `https://amittech.in/api/health` and confirm `monitoring.status` is `ok`.
 7. Open GlitchTip and confirm events arrive after a controlled test error.
 8. Open `https://amittech.in/admin`, sign in as a super admin, and check the API Monitoring panel.
+9. Use **Send test log** and **Send test error** in the API Monitoring panel to verify GlitchTip Logs and Issues.
 
 ## Health Endpoint Response
 
@@ -94,6 +96,23 @@ Stored fields are intentionally minimal:
 It does not store IP addresses, user agents, request bodies, cookies, or authorization headers.
 
 Set `API_METRICS_RETENTION_DAYS` to control automatic cleanup. The default is 30 days.
+
+## Debug Workflow
+
+Use these surfaces together:
+
+- GlitchTip Issues: exceptions with stack traces and request context.
+- GlitchTip Logs: structured warning/error logs emitted by the SDK.
+- GlitchTip Performance: sampled transaction traces.
+- `/admin` API Monitoring: per-route traffic, p50/p95 latency, error rate, and slowest requests.
+- Vercel Logs: raw serverless function logs for last-mile deployment/runtime debugging.
+
+The admin dashboard includes two super-admin-only test controls:
+
+- **Send test log** emits a warning log to GlitchTip Logs.
+- **Send test error** emits an error log and throws a controlled exception so it appears in GlitchTip Issues.
+
+Do not enable full `console.log` capture in production. The app captures only `console.warn` and `console.error` to avoid noisy logs and accidental sensitive data capture.
 
 ## Alerting Recommendations
 

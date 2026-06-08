@@ -42,9 +42,17 @@ export function getQueryNumber(value: string | string[] | undefined, fallback: n
 }
 
 function captureApiException(req: NextApiRequest, error: unknown, statusCode = 500) {
+  const route = normalizeApiRoute(req.url)
+
+  Sentry.logger.error('API exception captured', {
+    route,
+    method: req.method || 'UNKNOWN',
+    statusCode
+  })
+
   Sentry.withScope(scope => {
     scope.setTag('api.method', req.method || 'UNKNOWN')
-    scope.setTag('api.path', req.url?.split('?')[0] || 'unknown')
+    scope.setTag('api.path', route)
     scope.setTag('api.status_code', String(statusCode))
     Sentry.captureException(error)
   })

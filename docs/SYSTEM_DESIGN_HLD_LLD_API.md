@@ -55,7 +55,7 @@ flowchart LR
 | Auth Provider | Google Identity Services | Google ID token login |
 | Session Storage | PostgreSQL `Session` table | HttpOnly cookie-backed sessions |
 | Analytics | GA4/Mixpanel/Segment optional | Resume download event forwarding |
-| Monitoring | GlitchTip + `/api/health` + `ApiMetric` | Error capture, traces, report-only security reports, uptime checks, API latency/traffic dashboard |
+| Monitoring | GlitchTip + `/api/health` + `ApiMetric` | Error capture, warn/error logs, traces, report-only security reports, uptime checks, API latency/traffic dashboard |
 
 ## LLD
 
@@ -276,6 +276,7 @@ Indexes: `uploadedById`, `postId`, `type`, `deletedAt`.
 | `PATCH` | `/api/admin/users/:id/role` | `SUPER_ADMIN` | Update user role | `User.update` |
 | `PATCH` | `/api/admin/users/:id/status` | `SUPER_ADMIN` | Update user status; revoke sessions if inactive/banned | `User.update`, optional `Session.updateMany` |
 | `GET` | `/api/admin/metrics` | `SUPER_ADMIN` | API traffic, latency percentiles, errors, timeline, slowest requests | `ApiMetric` aggregate queries |
+| `POST` | `/api/admin/monitoring-test` | `SUPER_ADMIN` | Trigger controlled GlitchTip log/error test | GlitchTip SDK log/error emission, `ApiMetric` row |
 
 ## Important Request/Response Contracts
 

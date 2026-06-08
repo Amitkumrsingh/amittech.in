@@ -14,6 +14,8 @@ Sentry.init({
   environment: process.env.GLITCHTIP_ENVIRONMENT || process.env.SENTRY_ENVIRONMENT || process.env.VERCEL_ENV || process.env.NODE_ENV,
   release: process.env.SENTRY_RELEASE || process.env.VERCEL_GIT_COMMIT_SHA,
   sendDefaultPii: false,
+  enableLogs: true,
+  integrations: [Sentry.consoleLoggingIntegration({ levels: ['warn', 'error'] })],
   tracesSampleRate: numberFromEnv(
     process.env.GLITCHTIP_TRACES_SAMPLE_RATE || process.env.SENTRY_TRACES_SAMPLE_RATE,
     process.env.NODE_ENV === 'development' ? 1 : 0.1

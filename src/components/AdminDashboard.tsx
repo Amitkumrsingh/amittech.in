@@ -245,6 +245,7 @@ export default function AdminDashboard() {
   const [apiMetrics, setApiMetrics] = useState<ApiMetricsResponse | null>(null)
   const [metricsRangeHours, setMetricsRangeHours] = useState(24)
   const [loadingApiMetrics, setLoadingApiMetrics] = useState(false)
+  const [monitoringTestMode, setMonitoringTestMode] = useState<'log' | 'error' | null>(null)
   const googleButtonRef = useRef<HTMLDivElement | null>(null)
 
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
@@ -535,6 +536,29 @@ export default function AdminDashboard() {
       setError('')
     } catch {
       setError(url)
+    }
+  }
+
+  async function sendMonitoringTest(mode: 'log' | 'error') {
+    setMonitoringTestMode(mode)
+    setError('')
+    setMessage('')
+
+    try {
+      await requestJson<{ sent: boolean; mode: 'log' | 'error' }>('/api/admin/monitoring-test', {
+        method: 'POST',
+        body: JSON.stringify({ mode })
+      })
+      setMessage(mode === 'log' ? 'Test log sent to GlitchTip' : 'Test error sent to GlitchTip')
+    } catch (requestError) {
+      if (mode === 'error') {
+        setMessage('Test error triggered. Check GlitchTip Issues and Logs.')
+      } else {
+        setError(requestError instanceof Error ? requestError.message : 'Monitoring test failed')
+      }
+    } finally {
+      setMonitoringTestMode(null)
+      await loadApiMetrics()
     }
   }
 
@@ -866,6 +890,8 @@ export default function AdminDashboard() {
               loading={loadingApiMetrics}
               onRangeChange={setMetricsRangeHours}
               onRefresh={loadApiMetrics}
+              onSendTest={sendMonitoringTest}
+              testMode={monitoringTestMode}
             />
           ) : null}
         </DashboardShell>
@@ -1030,13 +1056,17 @@ function ApiMonitoringPanel({
   rangeHours,
   loading,
   onRangeChange,
-  onRefresh
+  onRefresh,
+  onSendTest,
+  testMode
 }: {
   metrics: ApiMetricsResponse | null
   rangeHours: number
   loading: boolean
   onRangeChange: (hours: number) => void
   onRefresh: () => void
+  onSendTest: (mode: 'log' | 'error') => void
+  testMode: 'log' | 'error' | null
 }) {
   const rangeOptions = [
     { label: '1h', value: 1 },
@@ -1074,6 +1104,12 @@ function ApiMonitoringPanel({
           ))}
           <ActionButton onClick={onRefresh} disabled={loading}>
             {loading ? 'Refreshing...' : 'Refresh'}
+          </ActionButton>
+          <ActionButton onClick={() => onSendTest('log')} disabled={Boolean(testMode)}>
+            {testMode === 'log' ? 'Sending...' : 'Send test log'}
+          </ActionButton>
+          <ActionButton onClick={() => onSendTest('error')} disabled={Boolean(testMode)} variant="danger">
+            {testMode === 'error' ? 'Triggering...' : 'Send test error'}
           </ActionButton>
         </div>
       </div>
