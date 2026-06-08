@@ -13,13 +13,14 @@ GlitchTip is the monitoring backend. The `@sentry/nextjs` package remains in the
 - Performance traces
 - Report-only security/CSP violation reports
 - Public uptime check at `/api/health`
-- Private super-admin API dashboard inside `/admin`
+- Private super-admin API monitoring dashboard at `/admin/monitoring`
 - Per-endpoint request count, avg latency, p50, p95, max latency, and error rate
 - Live API metrics refresh through 5-second polling
 
 ## Production URLs
 
 - Health check: `https://amittech.in/api/health`
+- API monitoring dashboard: `https://amittech.in/admin/monitoring`
 - GlitchTip dashboard: `https://app.glitchtip.com/`
 - GlitchTip SDK docs: `https://glitchtip.com/sdkdocs/`
 - Vercel environment variables: `https://vercel.com/dashboard`
@@ -51,8 +52,8 @@ API_METRICS_RETENTION_DAYS="30"
 5. Redeploy the production project.
 6. Open `https://amittech.in/api/health` and confirm `monitoring.status` is `ok`.
 7. Open GlitchTip and confirm events arrive after a controlled test error.
-8. Open `https://amittech.in/admin`, sign in as a super admin, and check the API Monitoring panel.
-9. Use **Send test log** and **Send test error** in the API Monitoring panel to verify GlitchTip Logs and Issues.
+8. Open `https://amittech.in/admin`, sign in as a super admin, then open `https://amittech.in/admin/monitoring`.
+9. Use **Send test log** and **Send test error** in the API Monitoring dashboard to verify GlitchTip Logs and Issues.
 
 ## Health Endpoint Response
 
@@ -81,7 +82,7 @@ This does not block scripts or styles. It only reports browser policy violations
 
 ## API Metrics Dashboard
 
-The `/admin` dashboard includes a super-admin-only API Monitoring panel.
+The `/admin/monitoring` page is a super-admin-only API Monitoring dashboard. The CMS page links to it only after a super-admin session is detected.
 
 It is powered by the `ApiMetric` PostgreSQL table and records API requests from the shared API handler plus resume download endpoints.
 
@@ -92,6 +93,7 @@ Live mode:
 - refreshes every 5 seconds
 - pauses when the browser tab is hidden
 - supports 15m, 1h, 6h, 24h, and 7d windows
+- shows a live traffic graph with request volume, average latency, and error markers
 - excludes `/api/health` and `/api/admin/metrics` from recorded traffic so uptime checks and dashboard polling do not pollute the numbers
 
 Stored fields are intentionally minimal:
@@ -114,10 +116,10 @@ Use these surfaces together:
 - GlitchTip Issues: exceptions with stack traces and request context.
 - GlitchTip Logs: structured warning/error logs emitted by the SDK.
 - GlitchTip Performance: sampled transaction traces.
-- `/admin` API Monitoring: per-route traffic, p50/p95 latency, error rate, and slowest requests.
+- `/admin/monitoring`: live traffic graph, per-route traffic, p50/p95 latency, error rate, and slowest requests.
 - Vercel Logs: raw serverless function logs for last-mile deployment/runtime debugging.
 
-The admin dashboard includes two super-admin-only test controls:
+The monitoring dashboard includes two super-admin-only test controls:
 
 - **Send test log** emits a warning log to GlitchTip Logs.
 - **Send test error** emits an error log and throws a controlled exception so it appears in GlitchTip Issues.

@@ -79,6 +79,14 @@ flowchart LR
 | Rich editor | `src/components/RichTextEditor.tsx` | TipTap document editor, focus mode, formatting, images, HTML fallback |
 | Sanitizer | `src/lib/api/content.ts` | Safe HTML tags/styles, slug generation, reading time |
 
+### Super Admin Monitoring
+
+| Module | File | Responsibility |
+|---|---|---|
+| Monitoring route | `src/app/admin/monitoring/page.tsx` | Private noindex route for API observability |
+| Monitoring UI | `src/components/ApiMonitoringDashboard.tsx` | Super-admin gate, live 5-second polling, traffic graph, endpoint latency table, slow request samples, GlitchTip test controls |
+| Metrics aggregator | `src/lib/api/metrics.ts` | Route normalization, metric writes, retention pruning, summary/timeline/percentile queries |
+
 ### API Services
 
 | Service | File | Responsibility |
@@ -277,6 +285,13 @@ Indexes: `uploadedById`, `postId`, `type`, `deletedAt`.
 | `PATCH` | `/api/admin/users/:id/status` | `SUPER_ADMIN` | Update user status; revoke sessions if inactive/banned | `User.update`, optional `Session.updateMany` |
 | `GET` | `/api/admin/metrics` | `SUPER_ADMIN` | API traffic, latency percentiles, errors, timeline, slowest requests | `ApiMetric` aggregate queries |
 | `POST` | `/api/admin/monitoring-test` | `SUPER_ADMIN` | Trigger controlled GlitchTip log/error test | GlitchTip SDK log/error emission, `ApiMetric` row |
+
+### Super Admin Pages
+
+| Route | Auth | Functionality |
+|---|---|---|
+| `/admin` | Google session, mixed `USER`/`SUPER_ADMIN` behavior | CMS command center for writing and publishing posts |
+| `/admin/monitoring` | `SUPER_ADMIN` only | Live API traffic graph, latency/error dashboard, slow requests, monitoring test controls |
 
 ## Important Request/Response Contracts
 
