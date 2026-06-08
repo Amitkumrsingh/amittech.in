@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
+import * as Sentry from '@sentry/nextjs'
 import { ZodError } from 'zod'
 
 export class ApiError extends Error {
@@ -39,12 +40,25 @@ export function getQueryNumber(value: string | string[] | undefined, fallback: n
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
 }
 
+function captureApiException(req: NextApiRequest, error: unknown, statusCode = 500) {
+  Sentry.withScope(scope => {
+    scope.setTag('api.method', req.method || 'UNKNOWN')
+    scope.setTag('api.path', req.url?.split('?')[0] || 'unknown')
+    scope.setTag('api.status_code', String(statusCode))
+    Sentry.captureException(error)
+  })
+}
+
 export function withApiErrorHandling(handler: ApiHandler): ApiHandler {
   return async (req, res) => {
     try {
       await handler(req, res)
     } catch (error) {
       if (error instanceof ApiError) {
+        if (error.statusCode >= 500) {
+          captureApiException(req, error, error.statusCode)
+        }
+
         res.status(error.statusCode).json({ ok: false, error: error.message, code: error.code })
         return
       }
@@ -61,6 +75,7 @@ export function withApiErrorHandling(handler: ApiHandler): ApiHandler {
 
       // eslint-disable-next-line no-console
       console.error('[api-error]', error)
+      captureApiException(req, error)
       res.status(500).json({ ok: false, error: 'Internal server error', code: 'INTERNAL_SERVER_ERROR' })
     }
   }
