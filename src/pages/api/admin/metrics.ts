@@ -7,7 +7,7 @@ export default withApiErrorHandling(async function handler(req: NextApiRequest, 
   if (req.method !== 'GET') return methodNotAllowed(res, ['GET'])
 
   await requireSuperAdmin(req)
-  const hours = getQueryNumber(req.query.hours, 24)
-  const metrics = await getApiMetricsOverview(hours)
+  const minutes = getQueryNumber(req.query.minutes, getQueryNumber(req.query.hours, 24) * 60)
+  const metrics = await getApiMetricsOverview(minutes)
   return ok(res, metrics)
 })

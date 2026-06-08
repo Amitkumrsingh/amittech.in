@@ -98,6 +98,7 @@ type ApiEnvelope<T> = {
 type ApiMetricsResponse = {
   generatedAt: string
   rangeHours: number
+  rangeMinutes: number
   summary: {
     requests: number
     errors: number
@@ -155,6 +156,8 @@ const STATUS_OPTIONS: Array<{ label: string; value: PostStatus | 'ALL' }> = [
   { label: 'Published', value: 'PUBLISHED' },
   { label: 'Archived', value: 'ARCHIVED' }
 ]
+
+const API_METRICS_POLL_INTERVAL_MS = 5000
 
 const emptyForm: PostForm = {
   title: '',
@@ -243,7 +246,8 @@ export default function AdminDashboard() {
   const [error, setError] = useState('')
   const [form, setForm] = useState<PostForm>(emptyForm)
   const [apiMetrics, setApiMetrics] = useState<ApiMetricsResponse | null>(null)
-  const [metricsRangeHours, setMetricsRangeHours] = useState(24)
+  const [metricsRangeMinutes, setMetricsRangeMinutes] = useState(60)
+  const [apiMetricsLive, setApiMetricsLive] = useState(true)
   const [loadingApiMetrics, setLoadingApiMetrics] = useState(false)
   const [monitoringTestMode, setMonitoringTestMode] = useState<'log' | 'error' | null>(null)
   const googleButtonRef = useRef<HTMLDivElement | null>(null)
@@ -297,18 +301,18 @@ export default function AdminDashboard() {
     }
   }, [user])
 
-  const loadApiMetrics = useCallback(async () => {
+  const loadApiMetrics = useCallback(async (options?: { silent?: boolean }) => {
     if (!isSuperAdmin) return
-    setLoadingApiMetrics(true)
+    if (!options?.silent) setLoadingApiMetrics(true)
     try {
-      const data = await requestJson<ApiMetricsResponse>(`/api/admin/metrics?hours=${metricsRangeHours}`)
+      const data = await requestJson<ApiMetricsResponse>(`/api/admin/metrics?minutes=${metricsRangeMinutes}`)
       setApiMetrics(data)
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'Unable to load API metrics')
     } finally {
-      setLoadingApiMetrics(false)
+      if (!options?.silent) setLoadingApiMetrics(false)
     }
-  }, [isSuperAdmin, metricsRangeHours])
+  }, [isSuperAdmin, metricsRangeMinutes])
 
   useEffect(() => {
     refreshMe()
@@ -380,6 +384,24 @@ export default function AdminDashboard() {
   useEffect(() => {
     loadApiMetrics()
   }, [loadApiMetrics])
+
+  useEffect(() => {
+    if (!isSuperAdmin || !apiMetricsLive) return
+
+    const refreshLiveMetrics = () => {
+      if (document.visibilityState === 'visible') {
+        void loadApiMetrics({ silent: true })
+      }
+    }
+
+    const intervalId = window.setInterval(refreshLiveMetrics, API_METRICS_POLL_INTERVAL_MS)
+    document.addEventListener('visibilitychange', refreshLiveMetrics)
+
+    return () => {
+      window.clearInterval(intervalId)
+      document.removeEventListener('visibilitychange', refreshLiveMetrics)
+    }
+  }, [apiMetricsLive, isSuperAdmin, loadApiMetrics])
 
   const metrics = useMemo(() => {
     const visiblePosts = posts.filter(post => !post.deletedAt)
@@ -886,9 +908,11 @@ export default function AdminDashboard() {
           {isSuperAdmin ? (
             <ApiMonitoringPanel
               metrics={apiMetrics}
-              rangeHours={metricsRangeHours}
+              rangeMinutes={metricsRangeMinutes}
+              live={apiMetricsLive}
               loading={loadingApiMetrics}
-              onRangeChange={setMetricsRangeHours}
+              onRangeChange={setMetricsRangeMinutes}
+              onLiveChange={setApiMetricsLive}
               onRefresh={loadApiMetrics}
               onSendTest={sendMonitoringTest}
               testMode={monitoringTestMode}
@@ -1053,37 +1077,52 @@ function formatHour(value: string) {
 
 function ApiMonitoringPanel({
   metrics,
-  rangeHours,
+  rangeMinutes,
+  live,
   loading,
   onRangeChange,
+  onLiveChange,
   onRefresh,
   onSendTest,
   testMode
 }: {
   metrics: ApiMetricsResponse | null
-  rangeHours: number
+  rangeMinutes: number
+  live: boolean
   loading: boolean
-  onRangeChange: (hours: number) => void
-  onRefresh: () => void
+  onRangeChange: (minutes: number) => void
+  onLiveChange: (live: boolean) => void
+  onRefresh: (options?: { silent?: boolean }) => void
   onSendTest: (mode: 'log' | 'error') => void
   testMode: 'log' | 'error' | null
 }) {
   const rangeOptions = [
-    { label: '1h', value: 1 },
-    { label: '6h', value: 6 },
-    { label: '24h', value: 24 },
-    { label: '7d', value: 168 }
+    { label: '15m', value: 15 },
+    { label: '1h', value: 60 },
+    { label: '6h', value: 360 },
+    { label: '24h', value: 1440 },
+    { label: '7d', value: 10080 }
   ]
   const maxTraffic = Math.max(1, ...(metrics?.timeline.map(point => point.requests) || [1]))
+  const latestRequest = metrics?.slowest[0]
 
   return (
     <Panel className="lg:col-span-12">
       <div className="flex flex-col gap-4 border-b border-white/10 pb-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-secondary">API Monitoring</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-secondary">API Monitoring</p>
+            <span className={cn('inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em]', live ? 'border-secondary/30 bg-secondary/10 text-secondary' : 'border-white/10 bg-white/5 text-slate-400')}>
+              <span className={cn('h-2 w-2 rounded-full', live ? 'animate-pulse bg-secondary' : 'bg-slate-500')} />
+              {live ? 'Live 5s' : 'Paused'}
+            </span>
+          </div>
           <h2 className="mt-2 font-display text-2xl font-semibold text-white">Traffic, latency, and failures</h2>
           <p className="mt-2 text-sm leading-6 text-slate-400">
-            Aggregated from production API requests stored in Supabase. Health pings are excluded.
+            Aggregated from production API requests stored in Supabase. Health pings and dashboard polling are excluded.
+          </p>
+          <p className="mt-2 text-xs text-slate-500">
+            Last updated {metrics ? formatHour(metrics.generatedAt) : 'waiting'}{latestRequest ? ` · slowest visible ${formatMs(latestRequest.latencyMs)}` : ''}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -1094,7 +1133,7 @@ function ApiMonitoringPanel({
               onClick={() => onRangeChange(option.value)}
               className={cn(
                 'rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition',
-                rangeHours === option.value
+                rangeMinutes === option.value
                   ? 'border-secondary bg-secondary/15 text-secondary'
                   : 'border-white/10 bg-white/[0.03] text-slate-400 hover:border-white/20 hover:text-white'
               )}
@@ -1102,6 +1141,9 @@ function ApiMonitoringPanel({
               {option.label}
             </MicroButton>
           ))}
+          <ActionButton onClick={() => onLiveChange(!live)} variant={live ? 'primary' : 'default'}>
+            {live ? 'Live on' : 'Live off'}
+          </ActionButton>
           <ActionButton onClick={onRefresh} disabled={loading}>
             {loading ? 'Refreshing...' : 'Refresh'}
           </ActionButton>

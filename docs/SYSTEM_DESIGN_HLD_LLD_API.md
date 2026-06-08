@@ -55,7 +55,7 @@ flowchart LR
 | Auth Provider | Google Identity Services | Google ID token login |
 | Session Storage | PostgreSQL `Session` table | HttpOnly cookie-backed sessions |
 | Analytics | GA4/Mixpanel/Segment optional | Resume download event forwarding |
-| Monitoring | GlitchTip + `/api/health` + `ApiMetric` | Error capture, warn/error logs, traces, report-only security reports, uptime checks, API latency/traffic dashboard |
+| Monitoring | GlitchTip + `/api/health` + `ApiMetric` | Error capture, warn/error logs, traces, report-only security reports, uptime checks, live-polled API latency/traffic dashboard |
 
 ## LLD
 
@@ -91,7 +91,7 @@ flowchart LR
 | Download counter | `src/lib/downloadCounter.ts` | Redis optional, file fallback, memory fallback |
 | Analytics forwarder | `src/lib/serverAnalytics.ts` | Optional GA4/Mixpanel/Segment event forwarding |
 | Monitoring runtime | `src/components/MonitoringClient.tsx`, `src/instrumentation.ts`, `src/instrumentation-client.ts`, `src/sentry.server.config.ts`, `src/sentry.edge.config.ts` | GlitchTip event reporting through the Sentry-compatible browser, node, and edge SDK |
-| API metrics | `src/lib/api/metrics.ts`, `src/pages/api/admin/metrics.ts` | Records API request latency/traffic and exposes super-admin dashboard data |
+| API metrics | `src/lib/api/metrics.ts`, `src/pages/api/admin/metrics.ts` | Records API request latency/traffic and exposes super-admin dashboard data with 5-second live polling |
 
 ## Data Storage
 

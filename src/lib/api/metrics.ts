@@ -37,6 +37,8 @@ type SlowRequestRow = {
   createdAt: Date
 }
 
+const EXCLUDED_METRIC_ROUTES = new Set(['/api/health', '/api/admin/metrics'])
+
 function toNumber(value: unknown, fallback = 0) {
   if (typeof value === 'bigint') return Number(value)
   if (typeof value === 'number') return Number.isFinite(value) ? value : fallback
@@ -77,6 +79,10 @@ export function normalizeApiRoute(url?: string) {
     .replace(/^\/api\/media\/[^/]+$/, '/api/media/[id]')
 }
 
+export function shouldRecordApiMetricRoute(route: string) {
+  return !EXCLUDED_METRIC_ROUTES.has(route)
+}
+
 async function pruneOldMetrics() {
   const retentionDays = Math.min(Math.max(Number(process.env.API_METRICS_RETENTION_DAYS || 30), 1), 365)
   const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000)
@@ -109,9 +115,10 @@ export async function recordApiMetric(input: MetricInput) {
   }
 }
 
-export async function getApiMetricsOverview(hours: number) {
-  const safeHours = Math.min(Math.max(Math.round(hours), 1), 24 * 30)
-  const since = new Date(Date.now() - safeHours * 60 * 60 * 1000)
+export async function getApiMetricsOverview(windowMinutes: number) {
+  const safeMinutes = Math.min(Math.max(Math.round(windowMinutes), 5), 60 * 24 * 30)
+  const since = new Date(Date.now() - safeMinutes * 60 * 1000)
+  const bucketUnit = safeMinutes <= 120 ? 'minute' : 'hour'
 
   const [summaryRows, endpointRows, timelineRows, slowRows] = await Promise.all([
     prisma.$queryRaw<SummaryRow[]>`
@@ -145,7 +152,7 @@ export async function getApiMetricsOverview(hours: number) {
     `,
     prisma.$queryRaw<TimelineRow[]>`
       SELECT
-        DATE_TRUNC('hour', "createdAt") AS "bucket",
+        DATE_TRUNC(${bucketUnit}, "createdAt") AS "bucket",
         COUNT(*)::int AS "requests",
         SUM(CASE WHEN "statusCode" >= 400 THEN 1 ELSE 0 END)::int AS "errors",
         AVG("latencyMs")::int AS "avgLatencyMs"
@@ -175,7 +182,8 @@ export async function getApiMetricsOverview(hours: number) {
 
   return {
     generatedAt: new Date().toISOString(),
-    rangeHours: safeHours,
+    rangeHours: Number((safeMinutes / 60).toFixed(2)),
+    rangeMinutes: safeMinutes,
     summary: {
       requests: toNumber(summary.requests),
       errors: toNumber(summary.errors),

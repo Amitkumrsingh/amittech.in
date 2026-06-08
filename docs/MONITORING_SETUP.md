@@ -15,6 +15,7 @@ GlitchTip is the monitoring backend. The `@sentry/nextjs` package remains in the
 - Public uptime check at `/api/health`
 - Private super-admin API dashboard inside `/admin`
 - Per-endpoint request count, avg latency, p50, p95, max latency, and error rate
+- Live API metrics refresh through 5-second polling
 
 ## Production URLs
 
@@ -83,6 +84,15 @@ This does not block scripts or styles. It only reports browser policy violations
 The `/admin` dashboard includes a super-admin-only API Monitoring panel.
 
 It is powered by the `ApiMetric` PostgreSQL table and records API requests from the shared API handler plus resume download endpoints.
+
+The dashboard uses short polling instead of WebSockets or SSE because the app runs on Vercel serverless functions. Polling is simpler, cheaper, and avoids keeping serverless connections open.
+
+Live mode:
+
+- refreshes every 5 seconds
+- pauses when the browser tab is hidden
+- supports 15m, 1h, 6h, 24h, and 7d windows
+- excludes `/api/health` and `/api/admin/metrics` from recorded traffic so uptime checks and dashboard polling do not pollute the numbers
 
 Stored fields are intentionally minimal:
 
