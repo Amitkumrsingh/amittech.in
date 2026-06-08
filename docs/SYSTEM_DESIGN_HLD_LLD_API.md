@@ -90,7 +90,7 @@ flowchart LR
 | Prisma singleton | `src/lib/api/prisma.ts` | Reuses Prisma client in dev, error logging |
 | Download counter | `src/lib/downloadCounter.ts` | Redis optional, file fallback, memory fallback |
 | Analytics forwarder | `src/lib/serverAnalytics.ts` | Optional GA4/Mixpanel/Segment event forwarding |
-| Monitoring runtime | `src/instrumentation.ts`, `src/instrumentation-client.ts`, `src/sentry.server.config.ts`, `src/sentry.edge.config.ts` | GlitchTip event reporting through the Sentry-compatible browser, node, and edge SDK |
+| Monitoring runtime | `src/components/MonitoringClient.tsx`, `src/instrumentation.ts`, `src/instrumentation-client.ts`, `src/sentry.server.config.ts`, `src/sentry.edge.config.ts` | GlitchTip event reporting through the Sentry-compatible browser, node, and edge SDK |
 
 ## Data Storage
 

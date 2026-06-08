@@ -1,5 +1,3 @@
-const { withSentryConfig } = require('@sentry/nextjs')
-
 const glitchtipSecurityReportUri = process.env.GLITCHTIP_SECURITY_REPORT_URI
 
 const contentSecurityPolicyReportOnly = [
@@ -20,7 +18,20 @@ const contentSecurityPolicyReportOnly = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Keep default settings; appDir is enabled by default in recent Next versions.
+  experimental: {
+    instrumentationHook: true
+  },
+  webpack(config) {
+    config.ignoreWarnings = [
+      ...(config.ignoreWarnings || []),
+      {
+        module: /node_modules\/require-in-the-middle/,
+        message: /Critical dependency: require function is used in a way/
+      }
+    ]
+
+    return config
+  },
   async headers() {
     if (!glitchtipSecurityReportUri) return []
 
@@ -38,25 +49,4 @@ const nextConfig = {
   }
 }
 
-// GlitchTip accepts the Sentry protocol, so the Sentry Next.js wrapper is still
-// the right SDK integration even though events are sent to GlitchTip.
-module.exports = withSentryConfig(nextConfig, {
-  org: process.env.SENTRY_ORG,
-  project: process.env.SENTRY_PROJECT,
-  authToken: process.env.SENTRY_AUTH_TOKEN,
-  silent: !process.env.CI,
-  telemetry: false,
-  release: {
-    create: false
-  },
-  sourcemaps: {
-    disable: true
-  },
-  widenClientFileUpload: true,
-  tunnelRoute: '/monitoring',
-  webpack: {
-    treeshake: {
-      removeDebugLogging: true
-    }
-  }
-})
+module.exports = nextConfig

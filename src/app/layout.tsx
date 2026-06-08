@@ -2,6 +2,7 @@ import '../styles/globals.css'
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
 import LayoutWrapper from '../components/LayoutWrapper'
+import MonitoringClient from '../components/MonitoringClient'
 import { getOgImageUrl, SEO_KEYWORDS, SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL, absoluteUrl } from '../lib/site'
 
 export const metadata: Metadata = {
@@ -96,6 +97,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         ) : null}
       </head>
       <body className="bg-bg text-white antialiased">
+        <MonitoringClient />
         <div className="min-h-screen">
           <LayoutWrapper>{children}</LayoutWrapper>
         </div>
