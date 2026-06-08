@@ -12,6 +12,8 @@ GlitchTip is the monitoring backend. The `@sentry/nextjs` package remains in the
 - Performance traces
 - Report-only security/CSP violation reports
 - Public uptime check at `/api/health`
+- Private super-admin API dashboard inside `/admin`
+- Per-endpoint request count, avg latency, p50, p95, max latency, and error rate
 
 ## Production URLs
 
@@ -32,6 +34,8 @@ NEXT_PUBLIC_GLITCHTIP_ENVIRONMENT="production"
 GLITCHTIP_TRACES_SAMPLE_RATE="0.1"
 NEXT_PUBLIC_GLITCHTIP_TRACES_SAMPLE_RATE="0.1"
 GLITCHTIP_SECURITY_REPORT_URI="https://app.glitchtip.com/api/<project-id>/security/?glitchtip_key=<public-key>"
+API_METRICS_DISABLED="false"
+API_METRICS_RETENTION_DAYS="30"
 ```
 
 `NEXT_PUBLIC_GLITCHTIP_DSN` is expected to be visible in browser JavaScript. Treat write/admin secrets separately; do not place private tokens in `NEXT_PUBLIC_*` variables.
@@ -45,6 +49,7 @@ GLITCHTIP_SECURITY_REPORT_URI="https://app.glitchtip.com/api/<project-id>/securi
 5. Redeploy the production project.
 6. Open `https://amittech.in/api/health` and confirm `monitoring.status` is `ok`.
 7. Open GlitchTip and confirm events arrive after a controlled test error.
+8. Open `https://amittech.in/admin`, sign in as a super admin, and check the API Monitoring panel.
 
 ## Health Endpoint Response
 
@@ -70,6 +75,25 @@ GLITCHTIP_SECURITY_REPORT_URI="https://app.glitchtip.com/api/<project-id>/securi
 When `GLITCHTIP_SECURITY_REPORT_URI` is configured, Next.js sends a `Content-Security-Policy-Report-Only` header.
 
 This does not block scripts or styles. It only reports browser policy violations to GlitchTip so the policy can be tightened safely later.
+
+## API Metrics Dashboard
+
+The `/admin` dashboard includes a super-admin-only API Monitoring panel.
+
+It is powered by the `ApiMetric` PostgreSQL table and records API requests from the shared API handler plus resume download endpoints.
+
+Stored fields are intentionally minimal:
+
+- route pattern
+- HTTP method
+- status code
+- latency in milliseconds
+- environment
+- timestamp
+
+It does not store IP addresses, user agents, request bodies, cookies, or authorization headers.
+
+Set `API_METRICS_RETENTION_DAYS` to control automatic cleanup. The default is 30 days.
 
 ## Alerting Recommendations
 

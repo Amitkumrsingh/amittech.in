@@ -55,7 +55,7 @@ flowchart LR
 | Auth Provider | Google Identity Services | Google ID token login |
 | Session Storage | PostgreSQL `Session` table | HttpOnly cookie-backed sessions |
 | Analytics | GA4/Mixpanel/Segment optional | Resume download event forwarding |
-| Monitoring | GlitchTip + `/api/health` | Error capture, traces, report-only security reports, uptime checks |
+| Monitoring | GlitchTip + `/api/health` + `ApiMetric` | Error capture, traces, report-only security reports, uptime checks, API latency/traffic dashboard |
 
 ## LLD
 
@@ -91,6 +91,7 @@ flowchart LR
 | Download counter | `src/lib/downloadCounter.ts` | Redis optional, file fallback, memory fallback |
 | Analytics forwarder | `src/lib/serverAnalytics.ts` | Optional GA4/Mixpanel/Segment event forwarding |
 | Monitoring runtime | `src/components/MonitoringClient.tsx`, `src/instrumentation.ts`, `src/instrumentation-client.ts`, `src/sentry.server.config.ts`, `src/sentry.edge.config.ts` | GlitchTip event reporting through the Sentry-compatible browser, node, and edge SDK |
+| API metrics | `src/lib/api/metrics.ts`, `src/pages/api/admin/metrics.ts` | Records API request latency/traffic and exposes super-admin dashboard data |
 
 ## Data Storage
 
@@ -274,6 +275,7 @@ Indexes: `uploadedById`, `postId`, `type`, `deletedAt`.
 | `GET` | `/api/admin/users` | `SUPER_ADMIN` | List users | `User.findMany + User.count` |
 | `PATCH` | `/api/admin/users/:id/role` | `SUPER_ADMIN` | Update user role | `User.update` |
 | `PATCH` | `/api/admin/users/:id/status` | `SUPER_ADMIN` | Update user status; revoke sessions if inactive/banned | `User.update`, optional `Session.updateMany` |
+| `GET` | `/api/admin/metrics` | `SUPER_ADMIN` | API traffic, latency percentiles, errors, timeline, slowest requests | `ApiMetric` aggregate queries |
 
 ## Important Request/Response Contracts
 

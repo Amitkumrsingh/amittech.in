@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import * as Sentry from '@sentry/nextjs'
 import { ZodError } from 'zod'
+import { normalizeApiRoute, recordApiMetric } from './metrics'
 
 export class ApiError extends Error {
   statusCode: number
@@ -51,6 +52,7 @@ function captureApiException(req: NextApiRequest, error: unknown, statusCode = 5
 
 export function withApiErrorHandling(handler: ApiHandler): ApiHandler {
   return async (req, res) => {
+    const startedAt = Date.now()
     try {
       await handler(req, res)
     } catch (error) {
@@ -77,6 +79,16 @@ export function withApiErrorHandling(handler: ApiHandler): ApiHandler {
       console.error('[api-error]', error)
       captureApiException(req, error)
       res.status(500).json({ ok: false, error: 'Internal server error', code: 'INTERNAL_SERVER_ERROR' })
+    } finally {
+      const route = normalizeApiRoute(req.url)
+      if (route !== '/api/health') {
+        await recordApiMetric({
+          route,
+          method: req.method || 'UNKNOWN',
+          statusCode: res.statusCode || 200,
+          latencyMs: Date.now() - startedAt
+        })
+      }
     }
   }
 }

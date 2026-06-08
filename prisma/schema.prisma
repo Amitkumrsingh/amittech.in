@@ -150,3 +150,19 @@ model Media {
   @@index([type])
   @@index([deletedAt])
 }
+
+model ApiMetric {
+  id          String   @id @default(cuid())
+  route       String
+  method      String
+  statusCode  Int
+  latencyMs   Int
+  ok          Boolean
+  environment String?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([route, method, createdAt])
+  @@index([statusCode])
+  @@index([ok])
+}

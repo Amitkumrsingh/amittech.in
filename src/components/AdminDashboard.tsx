@@ -95,6 +95,46 @@ type ApiEnvelope<T> = {
   code?: string
 }
 
+type ApiMetricsResponse = {
+  generatedAt: string
+  rangeHours: number
+  summary: {
+    requests: number
+    errors: number
+    serverErrors: number
+    avgLatencyMs: number
+    p50LatencyMs: number
+    p95LatencyMs: number
+    maxLatencyMs: number
+    errorRate: number
+  }
+  endpoints: Array<{
+    route: string
+    method: string
+    requests: number
+    errors: number
+    serverErrors: number
+    avgLatencyMs: number
+    p50LatencyMs: number
+    p95LatencyMs: number
+    maxLatencyMs: number
+    errorRate: number
+  }>
+  timeline: Array<{
+    bucket: string
+    requests: number
+    errors: number
+    avgLatencyMs: number
+  }>
+  slowest: Array<{
+    route: string
+    method: string
+    statusCode: number
+    latencyMs: number
+    createdAt: string
+  }>
+}
+
 declare global {
   interface Window {
     google?: {
@@ -202,6 +242,9 @@ export default function AdminDashboard() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [form, setForm] = useState<PostForm>(emptyForm)
+  const [apiMetrics, setApiMetrics] = useState<ApiMetricsResponse | null>(null)
+  const [metricsRangeHours, setMetricsRangeHours] = useState(24)
+  const [loadingApiMetrics, setLoadingApiMetrics] = useState(false)
   const googleButtonRef = useRef<HTMLDivElement | null>(null)
 
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
@@ -252,6 +295,19 @@ export default function AdminDashboard() {
       setMedia([])
     }
   }, [user])
+
+  const loadApiMetrics = useCallback(async () => {
+    if (!isSuperAdmin) return
+    setLoadingApiMetrics(true)
+    try {
+      const data = await requestJson<ApiMetricsResponse>(`/api/admin/metrics?hours=${metricsRangeHours}`)
+      setApiMetrics(data)
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Unable to load API metrics')
+    } finally {
+      setLoadingApiMetrics(false)
+    }
+  }, [isSuperAdmin, metricsRangeHours])
 
   useEffect(() => {
     refreshMe()
@@ -319,6 +375,10 @@ export default function AdminDashboard() {
   useEffect(() => {
     loadMedia()
   }, [loadMedia])
+
+  useEffect(() => {
+    loadApiMetrics()
+  }, [loadApiMetrics])
 
   const metrics = useMemo(() => {
     const visiblePosts = posts.filter(post => !post.deletedAt)
@@ -798,6 +858,16 @@ export default function AdminDashboard() {
               </article>
             </Panel>
           </div>
+
+          {isSuperAdmin ? (
+            <ApiMonitoringPanel
+              metrics={apiMetrics}
+              rangeHours={metricsRangeHours}
+              loading={loadingApiMetrics}
+              onRangeChange={setMetricsRangeHours}
+              onRefresh={loadApiMetrics}
+            />
+          ) : null}
         </DashboardShell>
       )}
     </motion.section>
@@ -942,6 +1012,171 @@ function ChipGroup({ label, items, onPick }: { label: string; items: string[]; o
         )}
       </div>
     </div>
+  )
+}
+
+function formatMs(value: number) {
+  if (!value) return '0 ms'
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}s`
+  return `${Math.round(value)} ms`
+}
+
+function formatHour(value: string) {
+  return new Intl.DateTimeFormat('en', { hour: '2-digit', minute: '2-digit' }).format(new Date(value))
+}
+
+function ApiMonitoringPanel({
+  metrics,
+  rangeHours,
+  loading,
+  onRangeChange,
+  onRefresh
+}: {
+  metrics: ApiMetricsResponse | null
+  rangeHours: number
+  loading: boolean
+  onRangeChange: (hours: number) => void
+  onRefresh: () => void
+}) {
+  const rangeOptions = [
+    { label: '1h', value: 1 },
+    { label: '6h', value: 6 },
+    { label: '24h', value: 24 },
+    { label: '7d', value: 168 }
+  ]
+  const maxTraffic = Math.max(1, ...(metrics?.timeline.map(point => point.requests) || [1]))
+
+  return (
+    <Panel className="lg:col-span-12">
+      <div className="flex flex-col gap-4 border-b border-white/10 pb-5 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-secondary">API Monitoring</p>
+          <h2 className="mt-2 font-display text-2xl font-semibold text-white">Traffic, latency, and failures</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-400">
+            Aggregated from production API requests stored in Supabase. Health pings are excluded.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {rangeOptions.map(option => (
+            <MicroButton
+              key={option.value}
+              type="button"
+              onClick={() => onRangeChange(option.value)}
+              className={cn(
+                'rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition',
+                rangeHours === option.value
+                  ? 'border-secondary bg-secondary/15 text-secondary'
+                  : 'border-white/10 bg-white/[0.03] text-slate-400 hover:border-white/20 hover:text-white'
+              )}
+            >
+              {option.label}
+            </MicroButton>
+          ))}
+          <ActionButton onClick={onRefresh} disabled={loading}>
+            {loading ? 'Refreshing...' : 'Refresh'}
+          </ActionButton>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <Metric label="Requests" value={metrics?.summary.requests || 0} />
+        <Metric label="Errors" value={metrics?.summary.errors || 0} />
+        <Panel>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Error rate</p>
+          <p className="mt-2 font-display text-3xl font-semibold text-white">{(metrics?.summary.errorRate || 0).toFixed(2)}%</p>
+        </Panel>
+        <Panel>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">P95 latency</p>
+          <p className="mt-2 font-display text-3xl font-semibold text-white">{formatMs(metrics?.summary.p95LatencyMs || 0)}</p>
+        </Panel>
+      </div>
+
+      {metrics?.timeline.length ? (
+        <div className="mt-5 rounded-[24px] border border-white/10 bg-black/20 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-400">Traffic timeline</h3>
+            <span className="text-xs text-slate-500">Generated {formatHour(metrics.generatedAt)}</span>
+          </div>
+          <div className="mt-4 flex h-28 items-end gap-2 overflow-x-auto pb-1">
+            {metrics.timeline.slice(-24).map(point => (
+              <div key={point.bucket} className="flex min-w-9 flex-col items-center gap-2">
+                <div className="flex h-20 w-full items-end rounded-full bg-white/[0.04] p-1">
+                  <div
+                    className={cn('w-full rounded-full', point.errors ? 'bg-accent' : 'bg-secondary')}
+                    style={{ height: `${Math.max(8, (point.requests / maxTraffic) * 100)}%` }}
+                    title={`${point.requests} requests, ${point.errors} errors`}
+                  />
+                </div>
+                <span className="text-[10px] text-slate-500">{formatHour(point.bucket)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className="mt-5 rounded-2xl border border-dashed border-white/10 p-5 text-sm text-slate-400">
+          No API traffic recorded for this window yet. It will populate after production requests hit instrumented APIs.
+        </p>
+      )}
+
+      <div className="mt-5 overflow-x-auto rounded-[24px] border border-white/10 bg-black/20">
+        <table className="min-w-[860px] w-full text-left text-sm">
+          <thead className="border-b border-white/10 text-xs uppercase tracking-[0.18em] text-slate-500">
+            <tr>
+              <th className="px-4 py-3">Endpoint</th>
+              <th className="px-4 py-3">Method</th>
+              <th className="px-4 py-3 text-right">Traffic</th>
+              <th className="px-4 py-3 text-right">Avg</th>
+              <th className="px-4 py-3 text-right">P50</th>
+              <th className="px-4 py-3 text-right">P95</th>
+              <th className="px-4 py-3 text-right">Max</th>
+              <th className="px-4 py-3 text-right">Errors</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/10">
+            {metrics?.endpoints.length ? (
+              metrics.endpoints.map(endpoint => (
+                <tr key={`${endpoint.method}:${endpoint.route}`} className="text-slate-300">
+                  <td className="px-4 py-3 font-mono text-xs text-slate-200">{endpoint.route}</td>
+                  <td className="px-4 py-3">
+                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-xs font-semibold text-secondary">{endpoint.method}</span>
+                  </td>
+                  <td className="px-4 py-3 text-right">{endpoint.requests.toLocaleString()}</td>
+                  <td className="px-4 py-3 text-right">{formatMs(endpoint.avgLatencyMs)}</td>
+                  <td className="px-4 py-3 text-right">{formatMs(endpoint.p50LatencyMs)}</td>
+                  <td className="px-4 py-3 text-right">{formatMs(endpoint.p95LatencyMs)}</td>
+                  <td className="px-4 py-3 text-right">{formatMs(endpoint.maxLatencyMs)}</td>
+                  <td className={cn('px-4 py-3 text-right', endpoint.errors ? 'text-accent' : 'text-slate-500')}>
+                    {endpoint.errors.toLocaleString()} / {endpoint.errorRate.toFixed(2)}%
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
+                  Waiting for API traffic.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {metrics?.slowest.length ? (
+        <div className="mt-5 grid gap-3 lg:grid-cols-2">
+          {metrics.slowest.map((request, index) => (
+            <div key={`${request.route}-${request.createdAt}-${index}`} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate font-mono text-xs text-slate-200">{request.route}</p>
+                  <p className="mt-1 text-xs text-slate-500">{formatHour(request.createdAt)} · {request.method} · HTTP {request.statusCode}</p>
+                </div>
+                <span className="rounded-full bg-gold/10 px-3 py-1 text-xs font-semibold text-gold">{formatMs(request.latencyMs)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </Panel>
   )
 }
 
