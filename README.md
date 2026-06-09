@@ -22,7 +22,7 @@ GEMINI_API_KEY=
 Optional environment variables:
 
 ```bash
-GEMINI_MODEL=gemini-1.5-flash
+GEMINI_MODEL=gemini-2.5-flash
 AI_DAILY_LIMIT_USER=20
 AI_DAILY_LIMIT_ADMIN=200
 ```

@@ -212,7 +212,7 @@ async function callGemini(prompt: string): Promise<AiStructuredResponse> {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) throw new ApiError(501, 'Gemini API is not configured. Set GEMINI_API_KEY.', 'AI_NOT_CONFIGURED')
 
-  const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash'
+  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -228,6 +228,20 @@ async function callGemini(prompt: string): Promise<AiStructuredResponse> {
   })
 
   if (!response.ok) {
+    const providerError = await response.json().catch(() => null) as { error?: { message?: string; status?: string } } | null
+    const providerMessage = providerError?.error?.message || ''
+    const providerStatus = providerError?.error?.status || ''
+
+    if (response.status === 400 && /model/i.test(providerMessage)) {
+      throw new ApiError(502, `Gemini model is not available. Set GEMINI_MODEL to an available model such as gemini-2.5-flash.`, 'AI_MODEL_UNAVAILABLE')
+    }
+    if (response.status === 400 || response.status === 403) {
+      throw new ApiError(502, 'Gemini rejected the request. Check the API key, model, and project access.', 'AI_PROVIDER_CONFIG_ERROR')
+    }
+    if (response.status === 429 || /quota|rate/i.test(`${providerStatus} ${providerMessage}`)) {
+      throw new ApiError(429, 'Gemini quota or rate limit reached. Please try again later.', 'AI_PROVIDER_RATE_LIMIT')
+    }
+
     throw new ApiError(response.status >= 500 ? 502 : response.status, 'AI generation failed. Please try again.', 'AI_PROVIDER_ERROR')
   }
 
