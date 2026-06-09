@@ -132,6 +132,13 @@ type AiResult = {
   notes?: string[]
 }
 
+type AiImageResult = {
+  imageDataUrl?: string
+  mimeType?: string
+  prompt?: string
+  text?: string
+}
+
 type AiForm = {
   action: AiAction
   topic: string
@@ -273,8 +280,11 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
   const [diagramOpen, setDiagramOpen] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
+  const [aiImageLoading, setAiImageLoading] = useState(false)
   const [aiError, setAiError] = useState('')
   const [aiResult, setAiResult] = useState<AiResult | null>(null)
+  const [aiDraftHtml, setAiDraftHtml] = useState('')
+  const [aiImage, setAiImage] = useState<AiImageResult | null>(null)
   const [aiForm, setAiForm] = useState<AiForm>({
     action: 'generate-draft',
     topic: '',
@@ -463,7 +473,9 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
       })
       const payload = await response.json() as { ok: boolean; error?: string; data?: { result: AiResult } }
       if (!response.ok || !payload.ok) throw new Error(payload.error || 'AI request failed')
-      setAiResult(payload.data?.result || null)
+      const result = payload.data?.result || null
+      setAiResult(result)
+      setAiDraftHtml(result ? aiResultToDraftHtml(result) : '')
     } catch (error) {
       setAiError(error instanceof Error ? error.message : 'AI request failed')
     } finally {
@@ -471,9 +483,38 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
     }
   }
 
+  async function runAiImage() {
+    if (!editor) return
+    const prompt = aiResult?.coverImagePrompt || aiForm.notes || aiForm.topic || aiContext?.title || documentTitle || editor.getText().slice(0, 400)
+    setAiImageLoading(true)
+    setAiError('')
+    try {
+      const response = await fetch('/api/ai/generate-image', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          postId,
+          topic: aiForm.topic || aiContext?.title || documentTitle,
+          category: aiForm.category || aiContext?.category,
+          notes: prompt,
+          title: aiContext?.title || documentTitle,
+          contentText: editor.getText()
+        })
+      })
+      const payload = await response.json() as { ok: boolean; error?: string; data?: { result: AiImageResult } }
+      if (!response.ok || !payload.ok) throw new Error(payload.error || 'Image generation failed')
+      setAiImage(payload.data?.result || null)
+    } catch (error) {
+      setAiError(error instanceof Error ? error.message : 'Image generation failed')
+    } finally {
+      setAiImageLoading(false)
+    }
+  }
+
   function insertAiResult(mode: 'insert' | 'append' | 'replace') {
-    if (!editor || !aiResult) return
-    const html = aiResultToHtml(aiResult)
+    if (!editor) return
+    const html = aiDraftHtml.trim()
     if (!html.trim()) return
 
     if (mode === 'replace') {
@@ -496,8 +537,21 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
   }
 
   async function copyAiResult() {
-    if (!aiResult) return
-    await navigator.clipboard.writeText(aiResultToPlainText(aiResult))
+    if (!aiResult && !aiDraftHtml) return
+    await navigator.clipboard.writeText(htmlToPlainText(aiDraftHtml) || (aiResult ? aiResultToPlainText(aiResult) : ''))
+  }
+
+  async function insertAiImage() {
+    if (!editor || !aiImage?.imageDataUrl) return
+    const blob = await fetch(aiImage.imageDataUrl).then(response => response.blob())
+    const file = new File([blob], `ai-cover-${Date.now()}.${(aiImage.mimeType || 'image/png').split('/')[1] || 'png'}`, { type: aiImage.mimeType || 'image/png' })
+
+    if (onUploadImage) {
+      await uploadImage(file)
+      return
+    }
+
+    editor.chain().focus().setImage({ src: aiImage.imageDataUrl }).run()
   }
 
   function applyAiMetadata() {
@@ -603,15 +657,21 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
             <AiAssistantModal
               form={aiForm}
               result={aiResult}
+              draftHtml={aiDraftHtml}
+              image={aiImage}
               loading={aiLoading}
+              imageLoading={aiImageLoading}
               error={aiError}
               selectedText={getSelectedText()}
               canApplyMetadata={Boolean(onApplyAiMetadata)}
               onChange={setAiForm}
+              onDraftChange={setAiDraftHtml}
               onRun={runAi}
+              onGenerateImage={runAiImage}
               onInsert={() => insertAiResult('insert')}
               onAppend={() => insertAiResult('append')}
               onReplace={() => insertAiResult('replace')}
+              onInsertImage={insertAiImage}
               onCopy={copyAiResult}
               onApplyMetadata={applyAiMetadata}
               onClose={() => setAiOpen(false)}
@@ -958,30 +1018,42 @@ function OutlineSidebar({ outline, revision }: { outline: OutlineItem[]; revisio
 function AiAssistantModal({
   form,
   result,
+  draftHtml,
+  image,
   loading,
+  imageLoading,
   error,
   selectedText,
   canApplyMetadata,
   onChange,
+  onDraftChange,
   onRun,
+  onGenerateImage,
   onInsert,
   onAppend,
   onReplace,
+  onInsertImage,
   onCopy,
   onApplyMetadata,
   onClose
 }: {
   form: AiForm
   result: AiResult | null
+  draftHtml: string
+  image: AiImageResult | null
   loading: boolean
+  imageLoading: boolean
   error: string
   selectedText: string
   canApplyMetadata: boolean
   onChange: (form: AiForm) => void
+  onDraftChange: (html: string) => void
   onRun: (action?: AiAction) => Promise<void>
+  onGenerateImage: () => Promise<void>
   onInsert: () => void
   onAppend: () => void
   onReplace: () => void
+  onInsertImage: () => Promise<void>
   onCopy: () => Promise<void>
   onApplyMetadata: () => void
   onClose: () => void
@@ -1091,18 +1163,61 @@ function AiAssistantModal({
 
           <div className="flex min-h-0 flex-col">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Preview</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Generated draft</p>
               <div className="flex flex-wrap gap-2">
-                <AiActionButton onClick={onInsert} disabled={!result}>Insert</AiActionButton>
-                <AiActionButton onClick={onAppend} disabled={!result}>Append</AiActionButton>
-                <AiActionButton onClick={onReplace} disabled={!result}>Replace selection</AiActionButton>
-                <AiActionButton onClick={onCopy} disabled={!result} icon={Clipboard}>Copy</AiActionButton>
+                <AiActionButton onClick={onInsert} disabled={!draftHtml}>Insert</AiActionButton>
+                <AiActionButton onClick={onAppend} disabled={!draftHtml}>Append</AiActionButton>
+                <AiActionButton onClick={onReplace} disabled={!draftHtml}>Replace selection</AiActionButton>
+                <AiActionButton onClick={onCopy} disabled={!draftHtml && !result} icon={Clipboard}>Copy</AiActionButton>
                 {canApplyMetadata ? <AiActionButton onClick={onApplyMetadata} disabled={!result}>Apply metadata</AiActionButton> : null}
               </div>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
-              {result ? (
-                <AiResultPreview result={result} />
+              {draftHtml || result ? (
+                <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+                  <div className="overflow-hidden rounded-2xl border border-white/10 bg-white">
+                    <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                      Editable article body
+                    </div>
+                    <div
+                      contentEditable
+                      suppressContentEditableWarning
+                      className="ai-draft-editor min-h-[460px] px-8 py-7 text-slate-950 outline-none"
+                      dangerouslySetInnerHTML={{ __html: draftHtml || '<p></p>' }}
+                      onInput={event => onDraftChange(event.currentTarget.innerHTML)}
+                    />
+                  </div>
+                  <div className="space-y-4">
+                    <AiMetadataPreview result={result} />
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-fuchsia-300">Image</p>
+                        <MicroButton
+                          type="button"
+                          onClick={onGenerateImage}
+                          disabled={imageLoading}
+                          className="inline-flex items-center gap-2 rounded-lg border border-fuchsia-300/30 px-3 py-1.5 text-xs font-semibold text-fuchsia-100 transition hover:bg-fuchsia-300/10 disabled:opacity-50"
+                        >
+                          <ImagePlus size={14} />
+                          {imageLoading ? 'Generating...' : 'Generate'}
+                        </MicroButton>
+                      </div>
+                      {image?.imageDataUrl ? (
+                        <div className="mt-3 overflow-hidden rounded-xl border border-white/10 bg-black/30">
+                          <img src={image.imageDataUrl} alt={image.prompt || 'AI generated blog cover'} className="aspect-video w-full object-cover" />
+                          <div className="flex flex-wrap gap-2 p-3">
+                            <AiActionButton onClick={onInsertImage}>Insert image</AiActionButton>
+                            <AiActionButton onClick={() => navigator.clipboard.writeText(image.prompt || '')} icon={Clipboard}>Copy prompt</AiActionButton>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-3 rounded-xl border border-dashed border-white/10 p-4 text-sm leading-6 text-slate-400">
+                          {image?.text || result?.coverImagePrompt || 'Generate a cover image preview here, or copy the image prompt from metadata.'}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               ) : (
                 <div className="grid min-h-[360px] place-items-center rounded-2xl border border-dashed border-white/10 bg-white/[0.025] p-8 text-center">
                   <div>
@@ -1162,7 +1277,9 @@ function AiActionButton({ children, icon: Icon, disabled, onClick }: { children:
   )
 }
 
-function AiResultPreview({ result }: { result: AiResult }) {
+function AiMetadataPreview({ result }: { result: AiResult | null }) {
+  if (!result) return null
+
   return (
     <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.035] p-5 text-sm leading-7 text-slate-200">
       {result.title ? <PreviewField label="Title">{result.title}</PreviewField> : null}
@@ -1175,14 +1292,6 @@ function AiResultPreview({ result }: { result: AiResult }) {
       {result.imageAltText ? <PreviewField label="Image alt text">{result.imageAltText}</PreviewField> : null}
       {result.linkedinPost ? <PreviewField label="LinkedIn post">{result.linkedinPost}</PreviewField> : null}
       {result.summary ? <PreviewField label="Summary">{result.summary}</PreviewField> : null}
-      {result.content?.length ? (
-        <div>
-          <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-fuchsia-300">Content blocks</p>
-          <div className="space-y-3" dangerouslySetInnerHTML={{ __html: aiBlocksToHtml(result.content) }} />
-        </div>
-      ) : null}
-      {result.plainText ? <PreviewField label="Plain text">{result.plainText}</PreviewField> : null}
-      {result.markdown ? <PreviewField label="Markdown">{result.markdown}</PreviewField> : null}
       {result.socialSnippets?.length ? <PreviewField label="Social snippets">{result.socialSnippets.join('\n\n')}</PreviewField> : null}
       {result.notes?.length ? <PreviewField label="Notes">{result.notes.join('\n')}</PreviewField> : null}
     </div>
@@ -1300,18 +1409,43 @@ function textToParagraphs(text = '') {
     .join('')
 }
 
-function aiResultToHtml(result: AiResult) {
+function aiResultToDraftHtml(result: AiResult) {
+  if (result.content?.length) return aiBlocksToHtml(result.content)
+
+  const jsonFromPlainText = parseAiJsonText(result.plainText || result.markdown || '')
+  if (jsonFromPlainText?.content?.length) return aiBlocksToHtml(jsonFromPlainText.content)
+
   const parts = [
-    result.content?.length ? aiBlocksToHtml(result.content) : '',
     result.plainText ? textToParagraphs(result.plainText) : '',
     result.markdown ? `<pre><code>${escapeHtml(result.markdown)}</code></pre>` : '',
     result.linkedinPost ? `<blockquote><p>${escapeHtml(result.linkedinPost).replace(/\n/g, '<br>')}</p></blockquote>` : '',
-    result.summary ? `<p><strong>Summary:</strong> ${escapeHtml(result.summary)}</p>` : '',
-    result.coverImagePrompt ? `<blockquote><p><strong>Cover image prompt:</strong> ${escapeHtml(result.coverImagePrompt)}</p></blockquote>` : '',
-    result.imageAltText ? `<p><strong>Image alt text:</strong> ${escapeHtml(result.imageAltText)}</p>` : ''
+    result.summary ? `<p><strong>Summary:</strong> ${escapeHtml(result.summary)}</p>` : ''
   ]
 
   return parts.filter(Boolean).join('')
+}
+
+function parseAiJsonText(text: string): AiResult | null {
+  const trimmed = text.trim()
+  if (!trimmed.startsWith('{')) return null
+  try {
+    return JSON.parse(trimmed) as AiResult
+  } catch {
+    const match = trimmed.match(/\{[\s\S]*\}/)
+    if (!match) return null
+    try {
+      return JSON.parse(match[0]) as AiResult
+    } catch {
+      return null
+    }
+  }
+}
+
+function htmlToPlainText(html: string) {
+  if (typeof window === 'undefined') return html
+  const element = document.createElement('div')
+  element.innerHTML = html
+  return element.textContent?.trim() || ''
 }
 
 function aiResultToPlainText(result: AiResult) {

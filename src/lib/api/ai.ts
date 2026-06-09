@@ -43,6 +43,13 @@ export type AiStructuredResponse = {
   notes?: string[]
 }
 
+type AiImageResponse = {
+  imageDataUrl?: string
+  mimeType?: string
+  prompt?: string
+  text?: string
+}
+
 type RateBucket = {
   date: string
   count: number
@@ -254,6 +261,56 @@ async function callGemini(prompt: string): Promise<AiStructuredResponse> {
   return normalizeAiResponse(parseGeminiJson(text))
 }
 
+async function callGeminiImage(prompt: string): Promise<AiImageResponse> {
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey) throw new ApiError(501, 'Gemini API is not configured. Set GEMINI_API_KEY.', 'AI_NOT_CONFIGURED')
+
+  const model = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image'
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: `Generate a blog cover image for this engineering article. No text in the image. Use this prompt:\n\n${truncate(prompt, 1400)}`
+            }
+          ]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.8,
+        maxOutputTokens: 1024
+      }
+    })
+  })
+
+  if (!response.ok) {
+    if (response.status === 429) throw new ApiError(429, 'Gemini image quota or rate limit reached. Please try again later.', 'AI_PROVIDER_RATE_LIMIT')
+    throw new ApiError(502, 'Image generation is not available for this Gemini key/model.', 'AI_IMAGE_UNAVAILABLE')
+  }
+
+  const payload = await response.json() as {
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string; inlineData?: { mimeType?: string; data?: string } }> } }>
+  }
+  const parts = payload.candidates?.[0]?.content?.parts || []
+  const image = parts.find(part => part.inlineData?.data)?.inlineData
+  const text = parts.map(part => part.text).filter(Boolean).join('\n').trim()
+
+  if (!image?.data) {
+    return { prompt, text: text || 'Gemini did not return an image. Use the prompt instead.' }
+  }
+
+  return {
+    prompt,
+    mimeType: image.mimeType || 'image/png',
+    imageDataUrl: `data:${image.mimeType || 'image/png'};base64,${image.data}`,
+    text
+  }
+}
+
 function logAiUsage(action: AiAction, user: AuthenticatedUser, input: AiInput) {
   // Keep usage metadata lightweight; do not store prompts or generated content.
   // eslint-disable-next-line no-console
@@ -282,6 +339,28 @@ export function createAiRoute(action: AiAction) {
 
     return ok(res, {
       action,
+      generatedAt: new Date().toISOString(),
+      result
+    })
+  })
+}
+
+export function createAiImageRoute() {
+  return withApiErrorHandling(async function handler(req: NextApiRequest, res: NextApiResponse) {
+    if (req.method !== 'POST') return methodNotAllowed(res, ['POST'])
+
+    const user = await requireUser(req)
+    const input = aiGenerateSchema.parse(req.body)
+
+    await assertCanUseAiForPost(input, user)
+    checkAiRateLimit(user)
+
+    const prompt = input.notes || input.topic || input.title || input.contentText || 'Premium dark engineering blog cover image'
+    const result = await callGeminiImage(prompt)
+    logAiUsage('image-prompt', user, input)
+
+    return ok(res, {
+      action: 'generate-image',
       generatedAt: new Date().toISOString(),
       result
     })
