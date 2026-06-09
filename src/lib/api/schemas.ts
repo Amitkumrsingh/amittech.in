@@ -54,3 +54,23 @@ export const userStatusUpdateSchema = z.object({
 export const mediaQuerySchema = z.object({
   postId: z.string().optional()
 })
+
+const aiOptionalString = z.string().trim().max(6000).optional().nullable()
+
+export const aiGenerateSchema = z.object({
+  postId: z.string().trim().optional(),
+  topic: z.string().trim().max(240).optional().nullable(),
+  targetAudience: z.string().trim().max(160).optional().nullable(),
+  tone: z.string().trim().max(120).optional().nullable(),
+  category: z.string().trim().max(80).optional().nullable(),
+  keywords: z.union([z.string().trim().max(400), z.array(z.string().trim().min(1).max(48)).max(12)]).optional().nullable(),
+  notes: aiOptionalString,
+  selectedText: aiOptionalString,
+  title: z.string().trim().max(220).optional().nullable(),
+  excerpt: aiOptionalString,
+  contentText: aiOptionalString,
+  html: aiOptionalString,
+  desiredLength: z.string().trim().max(80).optional().nullable(),
+  visualStyle: z.string().trim().max(160).optional().nullable(),
+  colorPalette: z.string().trim().max(160).optional().nullable()
+})

@@ -777,6 +777,24 @@ export default function AdminDashboard() {
                   }}
                   autoSaveKey={`amittech-cms-draft-${form.id || 'new'}`}
                   documentTitle={form.title || 'Untitled article'}
+                  postId={form.id}
+                  aiContext={{
+                    title: form.title,
+                    excerpt: form.excerpt,
+                    category: form.category,
+                    tags: form.tags
+                  }}
+                  onApplyAiMetadata={metadata => {
+                    if (metadata.title) updateForm('title', metadata.title)
+                    if (metadata.excerpt) updateForm('excerpt', metadata.excerpt)
+                    if (metadata.tags?.length) updateForm('tags', metadata.tags.join(', '))
+                    if (metadata.metaTitle) updateForm('metaTitle', metadata.metaTitle)
+                    if (metadata.metaDescription) updateForm('metaDescription', metadata.metaDescription)
+                    if (metadata.coverImagePrompt) {
+                      setMessage('Cover image prompt copied into clipboard')
+                      void navigator.clipboard.writeText(metadata.coverImagePrompt)
+                    }
+                  }}
                 />
               </FieldGroup>
 

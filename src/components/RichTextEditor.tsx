@@ -27,6 +27,7 @@ import {
   CheckSquare,
   Code2,
   Columns3,
+  Clipboard,
   Eraser,
   Eye,
   FileCode2,
@@ -45,12 +46,15 @@ import {
   Plus,
   Quote,
   Redo2,
+  RefreshCw,
   Save,
+  Sparkles,
   Strikethrough,
   Table2,
   Underline as UnderlineIcon,
   Undo2,
   Upload,
+  WandSparkles,
   X,
   type LucideIcon
 } from 'lucide-react'
@@ -65,6 +69,14 @@ type RichTextEditorProps = {
   onSave?: () => Promise<void> | void
   autoSaveKey?: string
   documentTitle?: string
+  postId?: string
+  aiContext?: {
+    title?: string
+    excerpt?: string
+    category?: string
+    tags?: string
+  }
+  onApplyAiMetadata?: (metadata: Partial<{ title: string; excerpt: string; tags: string[]; metaTitle: string; metaDescription: string; coverImagePrompt: string }>) => void
 }
 
 type FontSizeOptions = {
@@ -82,6 +94,53 @@ type OutlineItem = {
   id: string
   level: number
   text: string
+}
+
+type AiAction =
+  | 'generate-draft'
+  | 'rewrite'
+  | 'seo'
+  | 'title-ideas'
+  | 'tags'
+  | 'excerpt'
+  | 'linkedin-post'
+  | 'image-prompt'
+  | 'format-content'
+
+type AiBlock = {
+  type: 'heading' | 'paragraph' | 'blockquote' | 'code' | 'list'
+  level?: 1 | 2 | 3 | 4
+  text?: string
+  items?: string[]
+}
+
+type AiResult = {
+  title?: string
+  excerpt?: string
+  content?: AiBlock[]
+  markdown?: string
+  plainText?: string
+  tags?: string[]
+  titleIdeas?: string[]
+  metaTitle?: string
+  metaDescription?: string
+  coverImagePrompt?: string
+  imageAltText?: string
+  linkedinPost?: string
+  socialSnippets?: string[]
+  summary?: string
+  notes?: string[]
+}
+
+type AiForm = {
+  action: AiAction
+  topic: string
+  targetAudience: string
+  tone: string
+  category: string
+  keywords: string
+  notes: string
+  desiredLength: string
 }
 
 const FontSize = Extension.create<FontSizeOptions>({
@@ -205,13 +264,27 @@ const fontFamilies = [
 ]
 const fontSizes = ['0.875rem', '1rem', '1.125rem', '1.375rem', '1.75rem']
 
-export default function RichTextEditor({ value, onChange, onUploadImage, onSave, autoSaveKey, documentTitle }: RichTextEditorProps) {
+export default function RichTextEditor({ value, onChange, onUploadImage, onSave, autoSaveKey, documentTitle, postId, aiContext, onApplyAiMetadata }: RichTextEditorProps) {
   const [sourceMode, setSourceMode] = useState(false)
   const [focusMode, setFocusMode] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [insertMenuOpen, setInsertMenuOpen] = useState(false)
   const [diagramOpen, setDiagramOpen] = useState(false)
+  const [aiOpen, setAiOpen] = useState(false)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiError, setAiError] = useState('')
+  const [aiResult, setAiResult] = useState<AiResult | null>(null)
+  const [aiForm, setAiForm] = useState<AiForm>({
+    action: 'generate-draft',
+    topic: '',
+    targetAudience: 'Backend and platform engineers',
+    tone: 'Practical, direct, senior engineer',
+    category: '',
+    keywords: '',
+    notes: '',
+    desiredLength: 'Medium'
+  })
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [revision, setRevision] = useState(0)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -357,6 +430,88 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
     setDiagramOpen(false)
   }
 
+  function getSelectedText() {
+    if (!editor) return ''
+    const { from, to } = editor.state.selection
+    return editor.state.doc.textBetween(from, to, '\n').trim()
+  }
+
+  async function runAi(nextAction = aiForm.action) {
+    if (!editor) return
+    setAiLoading(true)
+    setAiError('')
+    try {
+      const response = await fetch(`/api/ai/${nextAction}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          postId,
+          topic: aiForm.topic || aiContext?.title || documentTitle,
+          targetAudience: aiForm.targetAudience,
+          tone: aiForm.tone,
+          category: aiForm.category || aiContext?.category,
+          keywords: aiForm.keywords,
+          notes: aiForm.notes,
+          desiredLength: aiForm.desiredLength,
+          selectedText: getSelectedText(),
+          title: aiContext?.title || documentTitle,
+          excerpt: aiContext?.excerpt,
+          html: value,
+          contentText: editor.getText()
+        })
+      })
+      const payload = await response.json() as { ok: boolean; error?: string; data?: { result: AiResult } }
+      if (!response.ok || !payload.ok) throw new Error(payload.error || 'AI request failed')
+      setAiResult(payload.data?.result || null)
+    } catch (error) {
+      setAiError(error instanceof Error ? error.message : 'AI request failed')
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  function insertAiResult(mode: 'insert' | 'append' | 'replace') {
+    if (!editor || !aiResult) return
+    const html = aiResultToHtml(aiResult)
+    if (!html.trim()) return
+
+    if (mode === 'replace') {
+      const selectedText = getSelectedText()
+      if (!selectedText) {
+        setAiError('Select text in the editor before replacing it.')
+        return
+      }
+      if (!window.confirm('Replace the selected text with this AI draft? Please review it before publishing.')) return
+      editor.chain().focus().insertContent(html).run()
+      return
+    }
+
+    if (mode === 'append') {
+      editor.chain().focus().setTextSelection(editor.state.doc.content.size).insertContent(html).run()
+      return
+    }
+
+    editor.chain().focus().insertContent(html).run()
+  }
+
+  async function copyAiResult() {
+    if (!aiResult) return
+    await navigator.clipboard.writeText(aiResultToPlainText(aiResult))
+  }
+
+  function applyAiMetadata() {
+    if (!aiResult || !onApplyAiMetadata) return
+    onApplyAiMetadata({
+      title: aiResult.title || aiResult.titleIdeas?.[0],
+      excerpt: aiResult.excerpt,
+      tags: aiResult.tags,
+      metaTitle: aiResult.metaTitle,
+      metaDescription: aiResult.metaDescription,
+      coverImagePrompt: aiResult.coverImagePrompt
+    })
+  }
+
   if (!editor) {
     return (
       <div className="min-h-[560px] rounded-[24px] border border-white/10 bg-black/20 p-5 text-sm text-slate-400">
@@ -396,6 +551,7 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
       onToggleInsertMenu={() => setInsertMenuOpen(current => !current)}
       onCloseInsertMenu={() => setInsertMenuOpen(false)}
       onOpenDiagram={() => setDiagramOpen(true)}
+      onOpenAi={() => setAiOpen(true)}
     />
   )
 
@@ -442,6 +598,27 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
             document.body
           )
         : null}
+      {aiOpen && mounted
+        ? createPortal(
+            <AiAssistantModal
+              form={aiForm}
+              result={aiResult}
+              loading={aiLoading}
+              error={aiError}
+              selectedText={getSelectedText()}
+              canApplyMetadata={Boolean(onApplyAiMetadata)}
+              onChange={setAiForm}
+              onRun={runAi}
+              onInsert={() => insertAiResult('insert')}
+              onAppend={() => insertAiResult('append')}
+              onReplace={() => insertAiResult('replace')}
+              onCopy={copyAiResult}
+              onApplyMetadata={applyAiMetadata}
+              onClose={() => setAiOpen(false)}
+            />,
+            document.body
+          )
+        : null}
     </>
   )
 }
@@ -469,7 +646,8 @@ function EditorShell({
   onSave,
   onToggleInsertMenu,
   onCloseInsertMenu,
-  onOpenDiagram
+  onOpenDiagram,
+  onOpenAi
 }: {
   editor: Editor
   mode: EditorMode
@@ -494,6 +672,7 @@ function EditorShell({
   onToggleInsertMenu: () => void
   onCloseInsertMenu: () => void
   onOpenDiagram: () => void
+  onOpenAi: () => void
 }) {
   return (
     <div
@@ -517,6 +696,15 @@ function EditorShell({
             </div>
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-1.5">
+            <MicroButton
+              type="button"
+              onClick={onOpenAi}
+              className="toolbar-tooltip inline-flex h-9 items-center gap-2 rounded-lg border border-fuchsia-200 bg-fuchsia-50 px-3 text-xs font-bold text-fuchsia-800 transition hover:bg-fuchsia-100"
+              data-tooltip="Ask AI"
+            >
+              <WandSparkles size={16} />
+              Ask AI
+            </MicroButton>
             <ToolbarButton icon={Undo2} label="Undo" disabled={sourceMode || !editor.can().undo()} onClick={() => editor.chain().focus().undo().run()} />
             <ToolbarButton icon={Redo2} label="Redo" disabled={sourceMode || !editor.can().redo()} onClick={() => editor.chain().focus().redo().run()} />
             <MicroButton
@@ -546,6 +734,7 @@ function EditorShell({
           onToggleFocus={onToggleFocus}
           onCloseInsertMenu={onCloseInsertMenu}
           onOpenDiagram={onOpenDiagram}
+          onOpenAi={onOpenAi}
         />
       </div>
 
@@ -590,7 +779,8 @@ function EditorToolbar({
   onUploadImage,
   onToggleFocus,
   onCloseInsertMenu,
-  onOpenDiagram
+  onOpenDiagram,
+  onOpenAi
 }: {
   editor: Editor
   sourceMode: boolean
@@ -606,6 +796,7 @@ function EditorToolbar({
   onToggleFocus: () => void
   onCloseInsertMenu: () => void
   onOpenDiagram: () => void
+  onOpenAi: () => void
 }) {
   const activeSize = fontSizes.find(size => editor.isActive('textStyle', { fontSize: size })) || '1rem'
 
@@ -725,6 +916,7 @@ function EditorToolbar({
       </ToolbarGroup>
 
       <ToolbarGroup>
+        <ToolbarButton icon={Sparkles} label="Ask AI" disabled={sourceMode} onClick={onOpenAi} />
         <ToolbarButton icon={Eraser} label="Clear formatting" disabled={sourceMode} onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()} />
         <ToolbarButton icon={sourceMode ? Eye : FileCode2} label={sourceMode ? 'Visual editor' : 'HTML source'} active={sourceMode} onClick={onToggleSource} />
         <ToolbarButton icon={Maximize2} label="Focus mode" onClick={onToggleFocus} />
@@ -760,6 +952,249 @@ function OutlineSidebar({ outline, revision }: { outline: OutlineItem[]; revisio
         )}
       </div>
     </aside>
+  )
+}
+
+function AiAssistantModal({
+  form,
+  result,
+  loading,
+  error,
+  selectedText,
+  canApplyMetadata,
+  onChange,
+  onRun,
+  onInsert,
+  onAppend,
+  onReplace,
+  onCopy,
+  onApplyMetadata,
+  onClose
+}: {
+  form: AiForm
+  result: AiResult | null
+  loading: boolean
+  error: string
+  selectedText: string
+  canApplyMetadata: boolean
+  onChange: (form: AiForm) => void
+  onRun: (action?: AiAction) => Promise<void>
+  onInsert: () => void
+  onAppend: () => void
+  onReplace: () => void
+  onCopy: () => Promise<void>
+  onApplyMetadata: () => void
+  onClose: () => void
+}) {
+  const actions: Array<{ label: string; value: AiAction }> = [
+    { label: 'Generate Draft', value: 'generate-draft' },
+    { label: 'Improve Selected Text', value: 'rewrite' },
+    { label: 'Generate SEO', value: 'seo' },
+    { label: 'Title Ideas', value: 'title-ideas' },
+    { label: 'Tags', value: 'tags' },
+    { label: 'Excerpt', value: 'excerpt' },
+    { label: 'LinkedIn Post', value: 'linkedin-post' },
+    { label: 'Cover Image Prompt', value: 'image-prompt' },
+    { label: 'Format Content', value: 'format-content' }
+  ]
+
+  return (
+    <div className="fixed inset-0 z-[1000] grid place-items-center bg-black/70 p-3 backdrop-blur" role="dialog" aria-modal="true" aria-label="AI writing assistant">
+      <div className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-950 shadow-2xl">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3 text-white">
+          <div className="flex items-center gap-3">
+            <div className="grid h-10 w-10 place-items-center rounded-xl bg-fuchsia-400/15 text-fuchsia-200">
+              <WandSparkles size={20} />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-fuchsia-300">AI writing assistant</p>
+              <h3 className="mt-1 text-sm font-semibold">Draft helper, never auto-publish</h3>
+            </div>
+          </div>
+          <MicroButton type="button" onClick={onClose} className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-xs font-semibold text-slate-200">
+            <X size={15} />
+            Close
+          </MicroButton>
+        </div>
+
+        <div className="grid min-h-0 flex-1 gap-0 overflow-hidden lg:grid-cols-[360px_1fr]">
+          <div className="min-h-0 overflow-y-auto border-r border-white/10 p-4">
+            <label className="block">
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Action</span>
+              <select
+                value={form.action}
+                onChange={event => onChange({ ...form, action: event.target.value as AiAction })}
+                className="min-h-11 w-full rounded-xl border border-white/10 bg-black/30 px-3 text-sm text-white"
+              >
+                {actions.map(action => <option key={action.value} value={action.value}>{action.label}</option>)}
+              </select>
+            </label>
+
+            <div className="mt-4">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Quick presets</p>
+              <div className="grid grid-cols-2 gap-2">
+                <PresetButton onClick={() => onChange({ ...form, action: 'rewrite', tone: 'Human, natural, practical', notes: `${form.notes}\nHumanize the selected text without making it casual or vague.`.trim() })}>Humanize</PresetButton>
+                <PresetButton onClick={() => onChange({ ...form, action: 'rewrite', tone: 'More technical, precise, senior engineer', notes: `${form.notes}\nMake the selected text more technical and precise, but keep it readable.`.trim() })}>Technical</PresetButton>
+                <PresetButton onClick={() => onChange({ ...form, action: 'rewrite', tone: 'Simple, clear, not shallow', notes: `${form.notes}\nSimplify the explanation without removing important engineering nuance.`.trim() })}>Simplify</PresetButton>
+                <PresetButton onClick={() => onChange({ ...form, action: 'linkedin-post', tone: 'LinkedIn engineering post, direct, experience-backed' })}>LinkedIn</PresetButton>
+                <PresetButton onClick={() => onChange({ ...form, action: 'rewrite', desiredLength: 'Expanded', notes: `${form.notes}\nExpand the selected paragraph with practical context, tradeoffs, and examples. Do not invent metrics.`.trim() })}>Expand</PresetButton>
+                <PresetButton onClick={() => onChange({ ...form, action: 'format-content', notes: `${form.notes}\nFormat for readability with clear sections, short paragraphs, and scannable flow.`.trim() })}>Format</PresetButton>
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3">
+              <AiInput label="Topic" value={form.topic} onChange={topic => onChange({ ...form, topic })} placeholder="Kafka retries, idempotency, system design..." />
+              <AiInput label="Audience" value={form.targetAudience} onChange={targetAudience => onChange({ ...form, targetAudience })} />
+              <AiInput label="Tone" value={form.tone} onChange={tone => onChange({ ...form, tone })} />
+              <AiInput label="Category" value={form.category} onChange={category => onChange({ ...form, category })} />
+              <AiInput label="Keywords" value={form.keywords} onChange={keywords => onChange({ ...form, keywords })} placeholder="Kafka, retries, backend" />
+              <AiInput label="Length" value={form.desiredLength} onChange={desiredLength => onChange({ ...form, desiredLength })} />
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Rough notes</span>
+                <textarea
+                  value={form.notes}
+                  onChange={event => onChange({ ...form, notes: event.target.value })}
+                  rows={5}
+                  className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-3 text-sm leading-6 text-white placeholder:text-slate-600"
+                  placeholder="Paste rough bullets, context, constraints, or personal notes."
+                />
+              </label>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.035] p-3 text-xs leading-5 text-slate-400">
+              <p className="font-semibold text-slate-300">Selected text</p>
+              <p className="mt-1 line-clamp-4">{selectedText || 'Select text in the editor to rewrite or replace it.'}</p>
+            </div>
+
+            <div className="mt-4 flex gap-2">
+              <MicroButton
+                type="button"
+                onClick={() => onRun(form.action)}
+                disabled={loading}
+                className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-fuchsia-300 px-4 text-sm font-bold text-slate-950 transition hover:bg-fuchsia-200 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Sparkles size={16} />
+                {loading ? 'Generating...' : 'Generate'}
+              </MicroButton>
+              <MicroButton
+                type="button"
+                onClick={() => onRun(form.action)}
+                disabled={loading || !result}
+                className="toolbar-tooltip grid min-h-11 w-11 place-items-center rounded-xl border border-white/10 text-slate-200 transition hover:border-fuchsia-300/50 hover:text-fuchsia-200 disabled:opacity-45"
+                data-tooltip="Regenerate"
+              >
+                <RefreshCw size={16} />
+              </MicroButton>
+            </div>
+            {error ? <p className="mt-3 rounded-xl border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-200">{error}</p> : null}
+          </div>
+
+          <div className="flex min-h-0 flex-col">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Preview</p>
+              <div className="flex flex-wrap gap-2">
+                <AiActionButton onClick={onInsert} disabled={!result}>Insert</AiActionButton>
+                <AiActionButton onClick={onAppend} disabled={!result}>Append</AiActionButton>
+                <AiActionButton onClick={onReplace} disabled={!result}>Replace selection</AiActionButton>
+                <AiActionButton onClick={onCopy} disabled={!result} icon={Clipboard}>Copy</AiActionButton>
+                {canApplyMetadata ? <AiActionButton onClick={onApplyMetadata} disabled={!result}>Apply metadata</AiActionButton> : null}
+              </div>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              {result ? (
+                <AiResultPreview result={result} />
+              ) : (
+                <div className="grid min-h-[360px] place-items-center rounded-2xl border border-dashed border-white/10 bg-white/[0.025] p-8 text-center">
+                  <div>
+                    <WandSparkles className="mx-auto text-fuchsia-300" size={30} />
+                    <h4 className="mt-4 font-display text-2xl font-semibold text-white">Ask Gemini for a draft assist.</h4>
+                    <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-slate-400">
+                      Output appears here first. You choose whether to insert, append, replace selected text, copy, or discard.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AiInput({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string }) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</span>
+      <input
+        value={value}
+        onChange={event => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="min-h-10 w-full rounded-xl border border-white/10 bg-black/30 px-3 text-sm text-white placeholder:text-slate-600"
+      />
+    </label>
+  )
+}
+
+function PresetButton({ children, onClick }: { children: ReactNode; onClick: () => void }) {
+  return (
+    <MicroButton
+      type="button"
+      onClick={onClick}
+      className="rounded-lg border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-semibold text-slate-300 transition hover:border-fuchsia-300/40 hover:text-fuchsia-200"
+    >
+      {children}
+    </MicroButton>
+  )
+}
+
+function AiActionButton({ children, icon: Icon, disabled, onClick }: { children: ReactNode; icon?: LucideIcon; disabled?: boolean; onClick: () => void | Promise<void> }) {
+  return (
+    <MicroButton
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-fuchsia-300/50 hover:text-fuchsia-200 disabled:cursor-not-allowed disabled:opacity-45"
+    >
+      {Icon ? <Icon size={14} /> : null}
+      {children}
+    </MicroButton>
+  )
+}
+
+function AiResultPreview({ result }: { result: AiResult }) {
+  return (
+    <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.035] p-5 text-sm leading-7 text-slate-200">
+      {result.title ? <PreviewField label="Title">{result.title}</PreviewField> : null}
+      {result.titleIdeas?.length ? <PreviewField label="Title ideas">{result.titleIdeas.join('\n')}</PreviewField> : null}
+      {result.excerpt ? <PreviewField label="Excerpt">{result.excerpt}</PreviewField> : null}
+      {result.metaTitle ? <PreviewField label="Meta title">{result.metaTitle}</PreviewField> : null}
+      {result.metaDescription ? <PreviewField label="Meta description">{result.metaDescription}</PreviewField> : null}
+      {result.tags?.length ? <PreviewField label="Tags">{result.tags.join(', ')}</PreviewField> : null}
+      {result.coverImagePrompt ? <PreviewField label="Cover image prompt">{result.coverImagePrompt}</PreviewField> : null}
+      {result.imageAltText ? <PreviewField label="Image alt text">{result.imageAltText}</PreviewField> : null}
+      {result.linkedinPost ? <PreviewField label="LinkedIn post">{result.linkedinPost}</PreviewField> : null}
+      {result.summary ? <PreviewField label="Summary">{result.summary}</PreviewField> : null}
+      {result.content?.length ? (
+        <div>
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-fuchsia-300">Content blocks</p>
+          <div className="space-y-3" dangerouslySetInnerHTML={{ __html: aiBlocksToHtml(result.content) }} />
+        </div>
+      ) : null}
+      {result.plainText ? <PreviewField label="Plain text">{result.plainText}</PreviewField> : null}
+      {result.markdown ? <PreviewField label="Markdown">{result.markdown}</PreviewField> : null}
+      {result.socialSnippets?.length ? <PreviewField label="Social snippets">{result.socialSnippets.join('\n\n')}</PreviewField> : null}
+      {result.notes?.length ? <PreviewField label="Notes">{result.notes.join('\n')}</PreviewField> : null}
+    </div>
+  )
+}
+
+function PreviewField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div>
+      <p className="mb-1 text-xs font-bold uppercase tracking-[0.18em] text-fuchsia-300">{label}</p>
+      <p className="whitespace-pre-wrap text-slate-200">{children}</p>
+    </div>
   )
 }
 
@@ -838,6 +1273,66 @@ function Swatches({ label, swatches, disabled, onPick }: { label: string; swatch
       ))}
     </div>
   )
+}
+
+function aiBlocksToHtml(blocks: AiBlock[] = []) {
+  return blocks.map(block => {
+    if (block.type === 'heading') {
+      const level = Math.min(Math.max(block.level || 2, 1), 4)
+      return `<h${level}>${escapeHtml(block.text || '')}</h${level}>`
+    }
+    if (block.type === 'blockquote') return `<blockquote><p>${escapeHtml(block.text || '')}</p></blockquote>`
+    if (block.type === 'code') return `<pre><code>${escapeHtml(block.text || '')}</code></pre>`
+    if (block.type === 'list') {
+      const items = (block.items || []).map(item => `<li>${escapeHtml(item)}</li>`).join('')
+      return `<ul>${items}</ul>`
+    }
+    return `<p>${escapeHtml(block.text || '')}</p>`
+  }).join('')
+}
+
+function textToParagraphs(text = '') {
+  return text
+    .split(/\n{2,}/)
+    .map(part => part.trim())
+    .filter(Boolean)
+    .map(part => `<p>${escapeHtml(part).replace(/\n/g, '<br>')}</p>`)
+    .join('')
+}
+
+function aiResultToHtml(result: AiResult) {
+  const parts = [
+    result.content?.length ? aiBlocksToHtml(result.content) : '',
+    result.plainText ? textToParagraphs(result.plainText) : '',
+    result.markdown ? `<pre><code>${escapeHtml(result.markdown)}</code></pre>` : '',
+    result.linkedinPost ? `<blockquote><p>${escapeHtml(result.linkedinPost).replace(/\n/g, '<br>')}</p></blockquote>` : '',
+    result.summary ? `<p><strong>Summary:</strong> ${escapeHtml(result.summary)}</p>` : '',
+    result.coverImagePrompt ? `<blockquote><p><strong>Cover image prompt:</strong> ${escapeHtml(result.coverImagePrompt)}</p></blockquote>` : '',
+    result.imageAltText ? `<p><strong>Image alt text:</strong> ${escapeHtml(result.imageAltText)}</p>` : ''
+  ]
+
+  return parts.filter(Boolean).join('')
+}
+
+function aiResultToPlainText(result: AiResult) {
+  const blockText = result.content?.map(block => block.items?.join('\n') || block.text || '').filter(Boolean).join('\n\n')
+  return [
+    result.title,
+    result.titleIdeas?.join('\n'),
+    result.excerpt,
+    blockText,
+    result.plainText,
+    result.markdown,
+    result.metaTitle,
+    result.metaDescription,
+    result.tags?.join(', '),
+    result.coverImagePrompt,
+    result.imageAltText,
+    result.linkedinPost,
+    result.socialSnippets?.join('\n\n'),
+    result.summary,
+    result.notes?.join('\n')
+  ].filter(Boolean).join('\n\n')
 }
 
 function getTextStats(text: string) {
