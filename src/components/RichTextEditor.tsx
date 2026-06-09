@@ -89,6 +89,7 @@ type FontFamilyOptions = {
 
 type EditorMode = 'compact' | 'focus'
 type SaveState = 'idle' | 'pending' | 'saved'
+type AiWorkflow = 'draft' | 'improve' | 'seo-media'
 
 type OutlineItem = {
   id: string
@@ -279,6 +280,7 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
   const [insertMenuOpen, setInsertMenuOpen] = useState(false)
   const [diagramOpen, setDiagramOpen] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
+  const [aiWorkflow, setAiWorkflow] = useState<AiWorkflow>('draft')
   const [aiLoading, setAiLoading] = useState(false)
   const [aiImageLoading, setAiImageLoading] = useState(false)
   const [aiError, setAiError] = useState('')
@@ -446,6 +448,13 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
     return editor.state.doc.textBetween(from, to, '\n').trim()
   }
 
+  function openAiAssistant() {
+    const selectedText = getSelectedText()
+    const currentText = editor?.getText().trim() || ''
+    setAiWorkflow(selectedText ? 'improve' : currentText.length < 120 ? 'draft' : 'seo-media')
+    setAiOpen(true)
+  }
+
   async function runAi(nextAction = aiForm.action) {
     if (!editor) return
     setAiLoading(true)
@@ -474,8 +483,9 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
       const payload = await response.json() as { ok: boolean; error?: string; data?: { result: AiResult } }
       if (!response.ok || !payload.ok) throw new Error(payload.error || 'AI request failed')
       const result = payload.data?.result || null
+      const bodyActions: AiAction[] = ['generate-draft', 'rewrite', 'linkedin-post', 'format-content']
       setAiResult(result)
-      setAiDraftHtml(result ? aiResultToDraftHtml(result) : '')
+      setAiDraftHtml(result && bodyActions.includes(nextAction) ? aiResultToDraftHtml(result) : '')
     } catch (error) {
       setAiError(error instanceof Error ? error.message : 'AI request failed')
     } finally {
@@ -605,7 +615,7 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
       onToggleInsertMenu={() => setInsertMenuOpen(current => !current)}
       onCloseInsertMenu={() => setInsertMenuOpen(false)}
       onOpenDiagram={() => setDiagramOpen(true)}
-      onOpenAi={() => setAiOpen(true)}
+      onOpenAi={openAiAssistant}
     />
   )
 
@@ -654,8 +664,9 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
         : null}
       {aiOpen && mounted
         ? createPortal(
-            <AiAssistantModal
+            <AiAssistantDrawer
               form={aiForm}
+              workflow={aiWorkflow}
               result={aiResult}
               draftHtml={aiDraftHtml}
               image={aiImage}
@@ -665,6 +676,7 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
               selectedText={getSelectedText()}
               canApplyMetadata={Boolean(onApplyAiMetadata)}
               onChange={setAiForm}
+              onWorkflowChange={setAiWorkflow}
               onDraftChange={setAiDraftHtml}
               onRun={runAi}
               onGenerateImage={runAiImage}
@@ -1015,8 +1027,9 @@ function OutlineSidebar({ outline, revision }: { outline: OutlineItem[]; revisio
   )
 }
 
-function AiAssistantModal({
+function AiAssistantDrawer({
   form,
+  workflow,
   result,
   draftHtml,
   image,
@@ -1026,6 +1039,7 @@ function AiAssistantModal({
   selectedText,
   canApplyMetadata,
   onChange,
+  onWorkflowChange,
   onDraftChange,
   onRun,
   onGenerateImage,
@@ -1038,6 +1052,7 @@ function AiAssistantModal({
   onClose
 }: {
   form: AiForm
+  workflow: AiWorkflow
   result: AiResult | null
   draftHtml: string
   image: AiImageResult | null
@@ -1047,6 +1062,7 @@ function AiAssistantModal({
   selectedText: string
   canApplyMetadata: boolean
   onChange: (form: AiForm) => void
+  onWorkflowChange: (workflow: AiWorkflow) => void
   onDraftChange: (html: string) => void
   onRun: (action?: AiAction) => Promise<void>
   onGenerateImage: () => Promise<void>
@@ -1058,99 +1074,153 @@ function AiAssistantModal({
   onApplyMetadata: () => void
   onClose: () => void
 }) {
-  const actions: Array<{ label: string; value: AiAction }> = [
-    { label: 'Generate Draft', value: 'generate-draft' },
-    { label: 'Improve Selected Text', value: 'rewrite' },
-    { label: 'Generate SEO', value: 'seo' },
-    { label: 'Title Ideas', value: 'title-ideas' },
-    { label: 'Tags', value: 'tags' },
-    { label: 'Excerpt', value: 'excerpt' },
-    { label: 'LinkedIn Post', value: 'linkedin-post' },
-    { label: 'Cover Image Prompt', value: 'image-prompt' },
-    { label: 'Format Content', value: 'format-content' }
-  ]
+  const workflowActions: Record<AiWorkflow, AiAction> = {
+    draft: 'generate-draft',
+    improve: 'rewrite',
+    'seo-media': 'seo'
+  }
+  const hasDraft = Boolean(draftHtml.trim())
+  const hasSelection = Boolean(selectedText.trim())
+  const activeAction = workflowActions[workflow]
+
+  function runWorkflow(action = activeAction) {
+    onChange({ ...form, action })
+    void onRun(action)
+  }
+
+  function updateImprovePreset(action: AiAction, tone: string, notes: string, desiredLength = form.desiredLength) {
+    onChange({ ...form, action, tone, notes, desiredLength })
+  }
 
   return (
-    <div className="fixed inset-0 z-[1000] grid place-items-center bg-black/70 p-3 backdrop-blur" role="dialog" aria-modal="true" aria-label="AI writing assistant">
-      <div className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-950 shadow-2xl">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3 text-white">
+    <div className="fixed inset-0 z-[1000] bg-black/45 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="AI writing assistant">
+      <button type="button" aria-label="Close AI assistant" className="absolute inset-0 cursor-default" onClick={onClose} />
+      <div className="absolute inset-y-0 right-0 flex w-full max-w-[1040px] flex-col overflow-hidden border-l border-white/15 bg-slate-950 shadow-2xl">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4 text-white">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-xl bg-fuchsia-400/15 text-fuchsia-200">
               <WandSparkles size={20} />
             </div>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-fuchsia-300">AI writing assistant</p>
-              <h3 className="mt-1 text-sm font-semibold">Draft helper, never auto-publish</h3>
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-fuchsia-300">Ask AI</p>
+              <h3 className="mt-1 text-sm font-semibold">Contextual writing assistant</h3>
             </div>
           </div>
-          <MicroButton type="button" onClick={onClose} className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-xs font-semibold text-slate-200">
+          <MicroButton type="button" onClick={onClose} className="toolbar-tooltip grid h-10 w-10 place-items-center rounded-xl border border-white/15 text-slate-200 transition hover:bg-white/10" data-tooltip="Close">
             <X size={15} />
-            Close
           </MicroButton>
         </div>
 
-        <div className="grid min-h-0 flex-1 gap-0 overflow-hidden lg:grid-cols-[360px_1fr]">
-          <div className="min-h-0 overflow-y-auto border-r border-white/10 p-4">
-            <label className="block">
-              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Action</span>
-              <select
-                value={form.action}
-                onChange={event => onChange({ ...form, action: event.target.value as AiAction })}
-                className="min-h-11 w-full rounded-xl border border-white/10 bg-black/30 px-3 text-sm text-white"
-              >
-                {actions.map(action => <option key={action.value} value={action.value}>{action.label}</option>)}
-              </select>
-            </label>
+        <div className="grid min-h-0 flex-1 overflow-hidden lg:grid-cols-[340px_1fr]">
+          <aside className="min-h-0 overflow-y-auto border-r border-white/10 bg-white/[0.025] p-4">
+            <div className="grid grid-cols-3 gap-1 rounded-xl border border-white/10 bg-black/30 p-1">
+              <WorkflowTab active={workflow === 'draft'} icon={FileCode2} label="Draft" onClick={() => onWorkflowChange('draft')} />
+              <WorkflowTab active={workflow === 'improve'} icon={Sparkles} label="Improve" onClick={() => onWorkflowChange('improve')} />
+              <WorkflowTab active={workflow === 'seo-media'} icon={ImagePlus} label="SEO/Media" onClick={() => onWorkflowChange('seo-media')} />
+            </div>
 
-            <div className="mt-4">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Quick presets</p>
-              <div className="grid grid-cols-2 gap-2">
-                <PresetButton onClick={() => onChange({ ...form, action: 'rewrite', tone: 'Human, natural, practical', notes: `${form.notes}\nHumanize the selected text without making it casual or vague.`.trim() })}>Humanize</PresetButton>
-                <PresetButton onClick={() => onChange({ ...form, action: 'rewrite', tone: 'More technical, precise, senior engineer', notes: `${form.notes}\nMake the selected text more technical and precise, but keep it readable.`.trim() })}>Technical</PresetButton>
-                <PresetButton onClick={() => onChange({ ...form, action: 'rewrite', tone: 'Simple, clear, not shallow', notes: `${form.notes}\nSimplify the explanation without removing important engineering nuance.`.trim() })}>Simplify</PresetButton>
-                <PresetButton onClick={() => onChange({ ...form, action: 'linkedin-post', tone: 'LinkedIn engineering post, direct, experience-backed' })}>LinkedIn</PresetButton>
-                <PresetButton onClick={() => onChange({ ...form, action: 'rewrite', desiredLength: 'Expanded', notes: `${form.notes}\nExpand the selected paragraph with practical context, tradeoffs, and examples. Do not invent metrics.`.trim() })}>Expand</PresetButton>
-                <PresetButton onClick={() => onChange({ ...form, action: 'format-content', notes: `${form.notes}\nFormat for readability with clear sections, short paragraphs, and scannable flow.`.trim() })}>Format</PresetButton>
+            {workflow === 'draft' ? (
+              <div className="mt-4 space-y-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-fuchsia-300">Draft from idea</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-400">Use this when you have rough points and want a complete first article inside the assistant.</p>
+                </div>
+                <AiInput label="Topic" value={form.topic} onChange={topic => onChange({ ...form, topic })} placeholder="Kafka retries, idempotency, system design..." />
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Rough notes</span>
+                  <textarea
+                    value={form.notes}
+                    onChange={event => onChange({ ...form, notes: event.target.value })}
+                    rows={8}
+                    className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-3 text-sm leading-6 text-white placeholder:text-slate-600"
+                    placeholder="Paste bullets, personal context, tradeoffs, incidents, snippets, or claims to preserve."
+                  />
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <AiInput label="Audience" value={form.targetAudience} onChange={targetAudience => onChange({ ...form, targetAudience })} />
+                  <AiInput label="Length" value={form.desiredLength} onChange={desiredLength => onChange({ ...form, desiredLength })} />
+                </div>
+                <details className="rounded-xl border border-white/10 bg-black/20 p-3">
+                  <summary className="cursor-pointer text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Context</summary>
+                  <div className="mt-3 grid gap-3">
+                    <AiInput label="Tone" value={form.tone} onChange={tone => onChange({ ...form, tone })} />
+                    <AiInput label="Category" value={form.category} onChange={category => onChange({ ...form, category })} />
+                    <AiInput label="Keywords" value={form.keywords} onChange={keywords => onChange({ ...form, keywords })} placeholder="Kafka, retries, backend" />
+                  </div>
+                </details>
               </div>
-            </div>
+            ) : null}
 
-            <div className="mt-4 grid gap-3">
-              <AiInput label="Topic" value={form.topic} onChange={topic => onChange({ ...form, topic })} placeholder="Kafka retries, idempotency, system design..." />
-              <AiInput label="Audience" value={form.targetAudience} onChange={targetAudience => onChange({ ...form, targetAudience })} />
-              <AiInput label="Tone" value={form.tone} onChange={tone => onChange({ ...form, tone })} />
-              <AiInput label="Category" value={form.category} onChange={category => onChange({ ...form, category })} />
-              <AiInput label="Keywords" value={form.keywords} onChange={keywords => onChange({ ...form, keywords })} placeholder="Kafka, retries, backend" />
-              <AiInput label="Length" value={form.desiredLength} onChange={desiredLength => onChange({ ...form, desiredLength })} />
-              <label className="block">
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Rough notes</span>
-                <textarea
-                  value={form.notes}
-                  onChange={event => onChange({ ...form, notes: event.target.value })}
-                  rows={5}
-                  className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-3 text-sm leading-6 text-white placeholder:text-slate-600"
-                  placeholder="Paste rough bullets, context, constraints, or personal notes."
-                />
-              </label>
-            </div>
+            {workflow === 'improve' ? (
+              <div className="mt-4 space-y-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-fuchsia-300">Improve selected text</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-400">Select a paragraph in the editor, pick the rewrite goal, review, then replace only when it looks right.</p>
+                </div>
+                <div className={cn('rounded-xl border p-3 text-xs leading-5', hasSelection ? 'border-white/10 bg-black/20 text-slate-300' : 'border-amber-300/30 bg-amber-300/10 text-amber-100')}>
+                  <p className="font-semibold">{hasSelection ? 'Current selection' : 'No selection yet'}</p>
+                  <p className="mt-1 line-clamp-6">{selectedText || 'Highlight text in the article before running this workflow.'}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <PresetButton onClick={() => updateImprovePreset('rewrite', 'Human, natural, practical', `${form.notes}\nHumanize the selected text without making it casual or vague.`.trim())}>Humanize</PresetButton>
+                  <PresetButton onClick={() => updateImprovePreset('rewrite', 'More technical, precise, senior engineer', `${form.notes}\nMake the selected text more technical and precise, but keep it readable.`.trim())}>Technical</PresetButton>
+                  <PresetButton onClick={() => updateImprovePreset('rewrite', 'Simple, clear, not shallow', `${form.notes}\nSimplify the explanation without removing important engineering nuance.`.trim())}>Simplify</PresetButton>
+                  <PresetButton onClick={() => updateImprovePreset('rewrite', form.tone, `${form.notes}\nExpand the selected paragraph with practical context, tradeoffs, and examples. Do not invent metrics.`.trim(), 'Expanded')}>Expand</PresetButton>
+                  <PresetButton onClick={() => updateImprovePreset('format-content', form.tone, `${form.notes}\nFormat for readability with clear sections, short paragraphs, and scannable flow.`.trim())}>Format</PresetButton>
+                  <PresetButton onClick={() => updateImprovePreset('linkedin-post', 'LinkedIn engineering post, direct, experience-backed', form.notes)}>LinkedIn</PresetButton>
+                </div>
+                <AiInput label="Tone" value={form.tone} onChange={tone => onChange({ ...form, tone })} />
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Instruction</span>
+                  <textarea
+                    value={form.notes}
+                    onChange={event => onChange({ ...form, notes: event.target.value })}
+                    rows={5}
+                    className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-3 text-sm leading-6 text-white placeholder:text-slate-600"
+                    placeholder="What exactly should change? Keep examples, make concise, add code context..."
+                  />
+                </label>
+              </div>
+            ) : null}
 
-            <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.035] p-3 text-xs leading-5 text-slate-400">
-              <p className="font-semibold text-slate-300">Selected text</p>
-              <p className="mt-1 line-clamp-4">{selectedText || 'Select text in the editor to rewrite or replace it.'}</p>
-            </div>
+            {workflow === 'seo-media' ? (
+              <div className="mt-4 space-y-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-fuchsia-300">SEO and media</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-400">Generate publish metadata, tags, social snippets, cover prompts, and the cover image from the current article.</p>
+                </div>
+                <div className="grid gap-2">
+                  <PresetButton onClick={() => runWorkflow('seo')}>SEO package</PresetButton>
+                  <PresetButton onClick={() => runWorkflow('title-ideas')}>Title ideas</PresetButton>
+                  <PresetButton onClick={() => runWorkflow('excerpt')}>Excerpt</PresetButton>
+                  <PresetButton onClick={() => runWorkflow('tags')}>Tags</PresetButton>
+                  <PresetButton onClick={() => runWorkflow('image-prompt')}>Cover prompt</PresetButton>
+                  <PresetButton onClick={() => runWorkflow('linkedin-post')}>LinkedIn post</PresetButton>
+                </div>
+                <details className="rounded-xl border border-white/10 bg-black/20 p-3">
+                  <summary className="cursor-pointer text-xs font-bold uppercase tracking-[0.16em] text-slate-400">Metadata context</summary>
+                  <div className="mt-3 grid gap-3">
+                    <AiInput label="Primary keyword" value={form.keywords} onChange={keywords => onChange({ ...form, keywords })} />
+                    <AiInput label="Category" value={form.category} onChange={category => onChange({ ...form, category })} />
+                    <AiInput label="Audience" value={form.targetAudience} onChange={targetAudience => onChange({ ...form, targetAudience })} />
+                  </div>
+                </details>
+              </div>
+            ) : null}
 
-            <div className="mt-4 flex gap-2">
+            <div className="mt-5 flex gap-2">
               <MicroButton
                 type="button"
-                onClick={() => onRun(form.action)}
-                disabled={loading}
+                onClick={() => runWorkflow()}
+                disabled={loading || (workflow === 'improve' && !hasSelection)}
                 className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-fuchsia-300 px-4 text-sm font-bold text-slate-950 transition hover:bg-fuchsia-200 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Sparkles size={16} />
-                {loading ? 'Generating...' : 'Generate'}
+                {loading ? 'Generating...' : workflow === 'seo-media' ? 'Generate SEO' : workflow === 'improve' ? 'Improve' : 'Draft'}
               </MicroButton>
               <MicroButton
                 type="button"
-                onClick={() => onRun(form.action)}
+                onClick={() => runWorkflow(form.action)}
                 disabled={loading || !result}
                 className="toolbar-tooltip grid min-h-11 w-11 place-items-center rounded-xl border border-white/10 text-slate-200 transition hover:border-fuchsia-300/50 hover:text-fuchsia-200 disabled:opacity-45"
                 data-tooltip="Regenerate"
@@ -1159,34 +1229,39 @@ function AiAssistantModal({
               </MicroButton>
             </div>
             {error ? <p className="mt-3 rounded-xl border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-200">{error}</p> : null}
-          </div>
+          </aside>
 
           <div className="flex min-h-0 flex-col">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Generated draft</p>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{workflow === 'seo-media' ? 'Publish assets' : 'Generated writing'}</p>
+                <p className="mt-1 text-xs text-slate-500">{workflow === 'improve' ? 'Review the replacement before touching the article.' : workflow === 'draft' ? 'Edit the generated body here, then insert it into the editor.' : 'Apply metadata or insert generated media after review.'}</p>
+              </div>
               <div className="flex flex-wrap gap-2">
-                <AiActionButton onClick={onInsert} disabled={!draftHtml}>Insert</AiActionButton>
-                <AiActionButton onClick={onAppend} disabled={!draftHtml}>Append</AiActionButton>
-                <AiActionButton onClick={onReplace} disabled={!draftHtml}>Replace selection</AiActionButton>
+                {workflow !== 'seo-media' ? <AiActionButton onClick={onInsert} disabled={!hasDraft}>Insert</AiActionButton> : null}
+                {workflow !== 'seo-media' ? <AiActionButton onClick={onAppend} disabled={!hasDraft}>Append</AiActionButton> : null}
+                {workflow === 'improve' ? <AiActionButton onClick={onReplace} disabled={!hasDraft || !hasSelection}>Replace selection</AiActionButton> : null}
                 <AiActionButton onClick={onCopy} disabled={!draftHtml && !result} icon={Clipboard}>Copy</AiActionButton>
                 {canApplyMetadata ? <AiActionButton onClick={onApplyMetadata} disabled={!result}>Apply metadata</AiActionButton> : null}
               </div>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
               {draftHtml || result ? (
-                <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+                <div className={cn('grid gap-4', workflow === 'seo-media' ? 'xl:grid-cols-[minmax(0,380px)_minmax(0,1fr)]' : 'xl:grid-cols-[minmax(0,1fr)_320px]')}>
+                  {workflow !== 'seo-media' || draftHtml ? (
                   <div className="overflow-hidden rounded-2xl border border-white/10 bg-white">
                     <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
-                      Editable article body
+                      {workflow === 'improve' ? 'Editable replacement' : 'Editable article body'}
                     </div>
                     <div
                       contentEditable
                       suppressContentEditableWarning
                       className="ai-draft-editor min-h-[460px] px-8 py-7 text-slate-950 outline-none"
                       dangerouslySetInnerHTML={{ __html: draftHtml || '<p></p>' }}
-                      onInput={event => onDraftChange(event.currentTarget.innerHTML)}
+                      onBlur={event => onDraftChange(event.currentTarget.innerHTML)}
                     />
                   </div>
+                  ) : null}
                   <div className="space-y-4">
                     <AiMetadataPreview result={result} />
                     <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
@@ -1222,9 +1297,9 @@ function AiAssistantModal({
                 <div className="grid min-h-[360px] place-items-center rounded-2xl border border-dashed border-white/10 bg-white/[0.025] p-8 text-center">
                   <div>
                     <WandSparkles className="mx-auto text-fuchsia-300" size={30} />
-                    <h4 className="mt-4 font-display text-2xl font-semibold text-white">Ask Gemini for a draft assist.</h4>
+                    <h4 className="mt-4 font-display text-2xl font-semibold text-white">{workflow === 'improve' ? 'Select text and improve it here.' : workflow === 'seo-media' ? 'Generate publish assets here.' : 'Draft inside the assistant.'}</h4>
                     <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-slate-400">
-                      Output appears here first. You choose whether to insert, append, replace selected text, copy, or discard.
+                      Output stays in this drawer first. You decide what gets inserted, replaced, applied, copied, or discarded.
                     </p>
                   </div>
                 </div>
@@ -1234,6 +1309,24 @@ function AiAssistantModal({
         </div>
       </div>
     </div>
+  )
+}
+
+function WorkflowTab({ active, icon: Icon, label, onClick }: { active: boolean; icon: LucideIcon; label: string; onClick: () => void }) {
+  return (
+    <MicroButton
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        'toolbar-tooltip inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-bold transition',
+        active ? 'bg-fuchsia-300 text-slate-950' : 'text-slate-300 hover:bg-white/10 hover:text-white'
+      )}
+      data-tooltip={label}
+    >
+      <Icon size={15} />
+      <span>{label}</span>
+    </MicroButton>
   )
 }
 
