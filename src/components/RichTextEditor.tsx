@@ -18,6 +18,42 @@ import { TextStyle } from '@tiptap/extension-text-style'
 import Underline from '@tiptap/extension-underline'
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
+import {
+  AlignCenter,
+  AlignJustify,
+  AlignLeft,
+  AlignRight,
+  Bold,
+  CheckSquare,
+  Code2,
+  Columns3,
+  Eraser,
+  Eye,
+  FileCode2,
+  Focus,
+  Highlighter,
+  ImagePlus,
+  IndentDecrease,
+  IndentIncrease,
+  Italic,
+  Link2,
+  List,
+  ListOrdered,
+  Maximize2,
+  Minus,
+  Pilcrow,
+  Plus,
+  Quote,
+  Redo2,
+  Save,
+  Strikethrough,
+  Table2,
+  Underline as UnderlineIcon,
+  Undo2,
+  Upload,
+  X,
+  type LucideIcon
+} from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { cn } from '../lib/classes'
 import MicroButton from './MicroButton'
@@ -390,10 +426,12 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
                     <h3 className="mt-1 text-sm font-semibold">Excalidraw workspace</h3>
                   </div>
                   <div className="flex gap-2">
-                    <MicroButton type="button" onClick={insertDiagram} className="rounded-full bg-cyan-400 px-4 py-2 text-xs font-bold text-slate-950">
+                    <MicroButton type="button" onClick={insertDiagram} className="inline-flex items-center gap-2 rounded-full bg-cyan-400 px-4 py-2 text-xs font-bold text-slate-950">
+                      <Columns3 size={15} />
                       Insert into post
                     </MicroButton>
-                    <MicroButton type="button" onClick={() => setDiagramOpen(false)} className="rounded-full border border-white/15 px-4 py-2 text-xs font-semibold text-slate-200">
+                    <MicroButton type="button" onClick={() => setDiagramOpen(false)} className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-xs font-semibold text-slate-200">
+                      <X size={15} />
                       Close
                     </MicroButton>
                   </div>
@@ -464,13 +502,33 @@ function EditorShell({
         mode === 'focus' ? 'flex h-screen flex-col rounded-none' : 'rounded-[24px]'
       )}
     >
-      <div className="border-b border-slate-200/80 bg-slate-50 text-slate-950">
-        <div className="flex min-h-12 items-center gap-2 border-b border-slate-200 px-3 text-[12px] font-semibold text-slate-700">
-          <MenuButton onClick={onToggleInsertMenu}>Insert</MenuButton>
-          <MenuButton onClick={() => editor.chain().focus().undo().run()} disabled={sourceMode || !editor.can().undo()}>Undo</MenuButton>
-          <MenuButton onClick={() => editor.chain().focus().redo().run()} disabled={sourceMode || !editor.can().redo()}>Redo</MenuButton>
-          <MenuButton onClick={onSave}>Save</MenuButton>
-          <span className="ml-auto truncate text-slate-500">{title}</span>
+      <div className="border-b border-slate-200/80 bg-[#f8fafc] text-slate-950">
+        <div className="flex min-h-14 items-center gap-2 border-b border-slate-200 px-3 text-[12px] font-semibold text-slate-700">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-cyan-500 text-white shadow-sm">
+              <Pilcrow size={18} />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-slate-900">{title}</p>
+              <div className="mt-0.5 flex items-center gap-1.5">
+                <MenuButton icon={Plus} onClick={onToggleInsertMenu}>Insert</MenuButton>
+                <MenuButton icon={Save} onClick={onSave}>Save</MenuButton>
+              </div>
+            </div>
+          </div>
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
+            <ToolbarButton icon={Undo2} label="Undo" disabled={sourceMode || !editor.can().undo()} onClick={() => editor.chain().focus().undo().run()} />
+            <ToolbarButton icon={Redo2} label="Redo" disabled={sourceMode || !editor.can().redo()} onClick={() => editor.chain().focus().redo().run()} />
+            <MicroButton
+              type="button"
+              onClick={onToggleFocus}
+              className="toolbar-tooltip inline-flex h-9 items-center gap-2 rounded-lg border border-cyan-200 bg-cyan-50 px-3 text-xs font-bold text-cyan-800 transition hover:bg-cyan-100"
+              data-tooltip={mode === 'focus' ? 'Exit focus mode' : 'Focus mode'}
+            >
+              {mode === 'focus' ? <Eye size={16} /> : <Focus size={16} />}
+              {mode === 'focus' ? 'Done' : 'Focus'}
+            </MicroButton>
+          </div>
         </div>
 
         <EditorToolbar
@@ -575,22 +633,22 @@ function EditorToolbar({
   }
 
   return (
-    <div className="relative flex flex-wrap items-center gap-2 px-3 py-2">
+    <div className="relative flex flex-wrap items-center gap-1.5 border-b border-slate-200/70 px-3 py-2 shadow-[0_8px_18px_-18px_rgba(15,23,42,.8)]">
       {insertMenuOpen ? (
-        <div className="absolute left-3 top-11 z-20 w-64 overflow-hidden rounded-xl border border-slate-200 bg-white py-2 text-sm shadow-2xl">
-          <InsertButton onClick={() => { editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(); onCloseInsertMenu() }}>Table</InsertButton>
-          <InsertButton onClick={() => { editor.chain().focus().toggleCodeBlock().run(); onCloseInsertMenu() }}>Code block</InsertButton>
-          <InsertButton onClick={() => { editor.chain().focus().toggleBlockquote().run(); onCloseInsertMenu() }}>Blockquote</InsertButton>
-          <InsertButton onClick={() => { editor.chain().focus().setHorizontalRule().run(); onCloseInsertMenu() }}>Divider</InsertButton>
-          <InsertButton onClick={insertCallout}>Callout box</InsertButton>
-          <InsertButton onClick={insertToc}>Table of contents</InsertButton>
-          <InsertButton onClick={() => { onOpenDiagram(); onCloseInsertMenu() }}>System design diagram</InsertButton>
+        <div className="absolute left-3 top-12 z-20 w-72 overflow-hidden rounded-xl border border-slate-200 bg-white py-2 text-sm shadow-2xl">
+          <InsertButton icon={Table2} onClick={() => { editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(); onCloseInsertMenu() }}>Table</InsertButton>
+          <InsertButton icon={Code2} onClick={() => { editor.chain().focus().toggleCodeBlock().run(); onCloseInsertMenu() }}>Code block</InsertButton>
+          <InsertButton icon={Quote} onClick={() => { editor.chain().focus().toggleBlockquote().run(); onCloseInsertMenu() }}>Blockquote</InsertButton>
+          <InsertButton icon={Minus} onClick={() => { editor.chain().focus().setHorizontalRule().run(); onCloseInsertMenu() }}>Divider</InsertButton>
+          <InsertButton icon={Highlighter} onClick={insertCallout}>Callout box</InsertButton>
+          <InsertButton icon={ListOrdered} onClick={insertToc}>Table of contents</InsertButton>
+          <InsertButton icon={Columns3} onClick={() => { onOpenDiagram(); onCloseInsertMenu() }}>System design diagram</InsertButton>
         </div>
       ) : null}
 
       <ToolbarGroup>
-        <ToolbarButton label="Undo" disabled={sourceMode || !editor.can().undo()} onClick={() => editor.chain().focus().undo().run()}>Undo</ToolbarButton>
-        <ToolbarButton label="Redo" disabled={sourceMode || !editor.can().redo()} onClick={() => editor.chain().focus().redo().run()}>Redo</ToolbarButton>
+        <ToolbarButton icon={Undo2} label="Undo" disabled={sourceMode || !editor.can().undo()} onClick={() => editor.chain().focus().undo().run()} />
+        <ToolbarButton icon={Redo2} label="Redo" disabled={sourceMode || !editor.can().redo()} onClick={() => editor.chain().focus().redo().run()} />
       </ToolbarGroup>
 
       <ToolbarGroup>
@@ -623,42 +681,40 @@ function EditorToolbar({
           <option value="">Default</option>
           {fontFamilies.map(font => <option key={font.label} value={font.value}>{font.label}</option>)}
         </select>
-        <ToolbarButton label="Smaller text" disabled={sourceMode} onClick={() => setRelativeFontSize(editor, -1)}>-</ToolbarButton>
+        <ToolbarButton icon={Minus} label="Smaller text" disabled={sourceMode} onClick={() => setRelativeFontSize(editor, -1)} />
         <span className="w-12 text-center text-[11px] font-semibold text-slate-600">{activeSize.replace('rem', '')}</span>
-        <ToolbarButton label="Larger text" disabled={sourceMode} onClick={() => setRelativeFontSize(editor, 1)}>+</ToolbarButton>
+        <ToolbarButton icon={Plus} label="Larger text" disabled={sourceMode} onClick={() => setRelativeFontSize(editor, 1)} />
       </ToolbarGroup>
 
       <ToolbarGroup>
-        <ToolbarButton label="Bold" active={editor.isActive('bold')} disabled={sourceMode} onClick={() => editor.chain().focus().toggleBold().run()}>B</ToolbarButton>
-        <ToolbarButton label="Italic" active={editor.isActive('italic')} disabled={sourceMode} onClick={() => editor.chain().focus().toggleItalic().run()}>I</ToolbarButton>
-        <ToolbarButton label="Underline" active={editor.isActive('underline')} disabled={sourceMode} onClick={() => editor.chain().focus().toggleUnderline().run()}>U</ToolbarButton>
-        <ToolbarButton label="Strikethrough" active={editor.isActive('strike')} disabled={sourceMode} onClick={() => editor.chain().focus().toggleStrike().run()}>S</ToolbarButton>
+        <ToolbarButton icon={Bold} label="Bold" active={editor.isActive('bold')} disabled={sourceMode} onClick={() => editor.chain().focus().toggleBold().run()} />
+        <ToolbarButton icon={Italic} label="Italic" active={editor.isActive('italic')} disabled={sourceMode} onClick={() => editor.chain().focus().toggleItalic().run()} />
+        <ToolbarButton icon={UnderlineIcon} label="Underline" active={editor.isActive('underline')} disabled={sourceMode} onClick={() => editor.chain().focus().toggleUnderline().run()} />
+        <ToolbarButton icon={Strikethrough} label="Strikethrough" active={editor.isActive('strike')} disabled={sourceMode} onClick={() => editor.chain().focus().toggleStrike().run()} />
       </ToolbarGroup>
 
       <ToolbarGroup>
-        <ToolbarButton label="Bullet list" active={editor.isActive('bulletList')} disabled={sourceMode} onClick={() => editor.chain().focus().toggleBulletList().run()}>Bullets</ToolbarButton>
-        <ToolbarButton label="Numbered list" active={editor.isActive('orderedList')} disabled={sourceMode} onClick={() => editor.chain().focus().toggleOrderedList().run()}>1.</ToolbarButton>
-        <ToolbarButton label="Checklist" active={editor.isActive('taskList')} disabled={sourceMode} onClick={() => editor.chain().focus().toggleTaskList().run()}>Check</ToolbarButton>
-        <ToolbarButton label="Outdent" disabled={sourceMode} onClick={() => editor.chain().focus().liftListItem('listItem').liftListItem('taskItem').run()}>Out</ToolbarButton>
-        <ToolbarButton label="Indent" disabled={sourceMode} onClick={() => editor.chain().focus().sinkListItem('listItem').sinkListItem('taskItem').run()}>In</ToolbarButton>
+        <ToolbarButton icon={List} label="Bullet list" active={editor.isActive('bulletList')} disabled={sourceMode} onClick={() => editor.chain().focus().toggleBulletList().run()} />
+        <ToolbarButton icon={ListOrdered} label="Numbered list" active={editor.isActive('orderedList')} disabled={sourceMode} onClick={() => editor.chain().focus().toggleOrderedList().run()} />
+        <ToolbarButton icon={CheckSquare} label="Checklist" active={editor.isActive('taskList')} disabled={sourceMode} onClick={() => editor.chain().focus().toggleTaskList().run()} />
+        <ToolbarButton icon={IndentDecrease} label="Outdent" disabled={sourceMode} onClick={() => editor.chain().focus().liftListItem('listItem').liftListItem('taskItem').run()} />
+        <ToolbarButton icon={IndentIncrease} label="Indent" disabled={sourceMode} onClick={() => editor.chain().focus().sinkListItem('listItem').sinkListItem('taskItem').run()} />
       </ToolbarGroup>
 
       <ToolbarGroup>
-        <ToolbarButton label="Align left" active={editor.isActive({ textAlign: 'left' })} disabled={sourceMode} onClick={() => editor.chain().focus().setTextAlign('left').run()}>Left</ToolbarButton>
-        <ToolbarButton label="Align center" active={editor.isActive({ textAlign: 'center' })} disabled={sourceMode} onClick={() => editor.chain().focus().setTextAlign('center').run()}>Center</ToolbarButton>
-        <ToolbarButton label="Align right" active={editor.isActive({ textAlign: 'right' })} disabled={sourceMode} onClick={() => editor.chain().focus().setTextAlign('right').run()}>Right</ToolbarButton>
-        <ToolbarButton label="Justify" active={editor.isActive({ textAlign: 'justify' })} disabled={sourceMode} onClick={() => editor.chain().focus().setTextAlign('justify').run()}>Justify</ToolbarButton>
+        <ToolbarButton icon={AlignLeft} label="Align left" active={editor.isActive({ textAlign: 'left' })} disabled={sourceMode} onClick={() => editor.chain().focus().setTextAlign('left').run()} />
+        <ToolbarButton icon={AlignCenter} label="Align center" active={editor.isActive({ textAlign: 'center' })} disabled={sourceMode} onClick={() => editor.chain().focus().setTextAlign('center').run()} />
+        <ToolbarButton icon={AlignRight} label="Align right" active={editor.isActive({ textAlign: 'right' })} disabled={sourceMode} onClick={() => editor.chain().focus().setTextAlign('right').run()} />
+        <ToolbarButton icon={AlignJustify} label="Justify" active={editor.isActive({ textAlign: 'justify' })} disabled={sourceMode} onClick={() => editor.chain().focus().setTextAlign('justify').run()} />
       </ToolbarGroup>
 
       <ToolbarGroup>
-        <ToolbarButton label="Add link" active={editor.isActive('link')} disabled={sourceMode} onClick={onSetLink}>Link</ToolbarButton>
-        <ToolbarButton label="Image from URL" disabled={sourceMode} onClick={onAddImageByUrl}>Image URL</ToolbarButton>
+        <ToolbarButton icon={Link2} label="Add link" active={editor.isActive('link')} disabled={sourceMode} onClick={onSetLink} />
+        <ToolbarButton icon={ImagePlus} label="Image from URL" disabled={sourceMode} onClick={onAddImageByUrl} />
         {hasUploader ? (
           <>
             <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={event => onUploadImage(event.target.files?.[0])} />
-            <ToolbarButton label="Upload image" disabled={sourceMode || uploading} onClick={() => fileInputRef.current?.click()}>
-              {uploading ? 'Uploading' : 'Upload'}
-            </ToolbarButton>
+            <ToolbarButton icon={Upload} label={uploading ? 'Uploading image' : 'Upload image'} disabled={sourceMode || uploading} onClick={() => fileInputRef.current?.click()} />
           </>
         ) : null}
       </ToolbarGroup>
@@ -669,9 +725,9 @@ function EditorToolbar({
       </ToolbarGroup>
 
       <ToolbarGroup>
-        <ToolbarButton label="Clear formatting" disabled={sourceMode} onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}>Clear</ToolbarButton>
-        <ToolbarButton label={sourceMode ? 'Visual editor' : 'HTML source'} active={sourceMode} onClick={onToggleSource}>{sourceMode ? 'Visual' : 'HTML'}</ToolbarButton>
-        <ToolbarButton label="Focus mode" onClick={onToggleFocus}>Focus</ToolbarButton>
+        <ToolbarButton icon={Eraser} label="Clear formatting" disabled={sourceMode} onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()} />
+        <ToolbarButton icon={sourceMode ? Eye : FileCode2} label={sourceMode ? 'Visual editor' : 'HTML source'} active={sourceMode} onClick={onToggleSource} />
+        <ToolbarButton icon={Maximize2} label="Focus mode" onClick={onToggleFocus} />
       </ToolbarGroup>
     </div>
   )
@@ -708,40 +764,58 @@ function OutlineSidebar({ outline, revision }: { outline: OutlineItem[]; revisio
 }
 
 function ToolbarGroup({ children }: { children: ReactNode }) {
-  return <div className="flex min-h-9 max-w-full flex-wrap items-center gap-1 rounded-xl border border-slate-200 bg-white px-1.5 py-1 shadow-sm">{children}</div>
+  return <div className="flex min-h-9 max-w-full flex-wrap items-center gap-0.5 rounded-lg border border-slate-200 bg-white px-1 py-1 shadow-sm">{children}</div>
 }
 
-function ToolbarButton({ children, label, active, disabled, onClick }: { children: ReactNode; label: string; active?: boolean; disabled?: boolean; onClick: () => void }) {
+function ToolbarButton({
+  children,
+  icon: Icon,
+  label,
+  active,
+  disabled,
+  onClick
+}: {
+  children?: ReactNode
+  icon?: LucideIcon
+  label: string
+  active?: boolean
+  disabled?: boolean
+  onClick: () => void
+}) {
   return (
     <MicroButton
       type="button"
-      title={label}
       aria-label={label}
       aria-pressed={active}
       disabled={disabled}
       onClick={onClick}
+      data-tooltip={label}
       className={cn(
-        'inline-flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-[11px] font-semibold text-slate-700 transition disabled:cursor-not-allowed disabled:opacity-35',
+        'toolbar-tooltip inline-flex h-8 min-w-8 items-center justify-center rounded-md px-2 text-[11px] font-semibold text-slate-700 transition disabled:cursor-not-allowed disabled:opacity-35',
         active ? 'bg-cyan-100 text-cyan-800' : 'hover:bg-slate-100 hover:text-cyan-800'
       )}
     >
+      {Icon ? <Icon size={16} strokeWidth={2.2} /> : children}
+    </MicroButton>
+  )
+}
+
+function MenuButton({ children, icon: Icon, disabled, onClick }: { children: ReactNode; icon?: LucideIcon; disabled?: boolean; onClick: () => void }) {
+  return (
+    <MicroButton type="button" disabled={disabled} onClick={onClick} className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-40">
+      {Icon ? <Icon size={14} /> : null}
       {children}
     </MicroButton>
   )
 }
 
-function MenuButton({ children, disabled, onClick }: { children: ReactNode; disabled?: boolean; onClick: () => void }) {
+function InsertButton({ children, icon: Icon, onClick }: { children: ReactNode; icon: LucideIcon; onClick: () => void }) {
   return (
-    <MicroButton type="button" disabled={disabled} onClick={onClick} className="rounded-md px-2 py-1 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-40">
-      {children}
-    </MicroButton>
-  )
-}
-
-function InsertButton({ children, onClick }: { children: ReactNode; onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} className="block w-full px-4 py-2 text-left font-semibold text-slate-700 transition hover:bg-cyan-50 hover:text-cyan-800">
-      {children}
+    <button type="button" onClick={onClick} className="flex w-full items-center gap-3 px-4 py-2 text-left font-semibold text-slate-700 transition hover:bg-cyan-50 hover:text-cyan-800">
+      <span className="grid h-8 w-8 place-items-center rounded-lg bg-slate-100 text-slate-500">
+        <Icon size={16} />
+      </span>
+      <span>{children}</span>
     </button>
   )
 }
@@ -754,11 +828,11 @@ function Swatches({ label, swatches, disabled, onPick }: { label: string; swatch
         <MicroButton
           key={color}
           type="button"
-          title={`${label}: ${color}`}
           aria-label={`${label}: ${color}`}
           disabled={disabled}
           onClick={() => onPick(color)}
-          className="h-6 w-6 rounded-md border border-slate-300 transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40"
+          data-tooltip={`${label}: ${color}`}
+          className="toolbar-tooltip h-6 w-6 rounded-md border border-slate-300 transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40"
           style={{ backgroundColor: color }}
         />
       ))}
