@@ -121,7 +121,9 @@ export async function getCurrentUser(req: NextApiRequest): Promise<Authenticated
 
   const session = await prisma.session.findUnique({
     where: { sessionTokenHash: hashSessionToken(token) },
-    include: {
+    select: {
+      expiresAt: true,
+      revokedAt: true,
       user: {
         select: {
           id: true,

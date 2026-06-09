@@ -16,7 +16,17 @@ export default withApiErrorHandling(async function handler(req: NextApiRequest, 
 
   const deleted = await prisma.media.update({
     where: { id },
-    data: { deletedAt: new Date() }
+    data: { deletedAt: new Date() },
+    select: {
+      id: true,
+      url: true,
+      type: true,
+      filename: true,
+      mimeType: true,
+      size: true,
+      createdAt: true,
+      deletedAt: true
+    }
   })
 
   return ok(res, { media: deleted })

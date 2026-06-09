@@ -12,6 +12,15 @@ export default withApiErrorHandling(async function handler(req: NextApiRequest, 
       uploadedById: user.id,
       deletedAt: null
     },
+    select: {
+      id: true,
+      url: true,
+      type: true,
+      filename: true,
+      mimeType: true,
+      size: true,
+      createdAt: true
+    },
     orderBy: { createdAt: 'desc' }
   })
 

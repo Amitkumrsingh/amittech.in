@@ -30,6 +30,37 @@ const postInclude = {
   }
 } satisfies Prisma.PostInclude
 
+const postListSelect = {
+  id: true,
+  title: true,
+  slug: true,
+  excerpt: true,
+  sanitizedHtml: true,
+  coverImage: true,
+  category: true,
+  tags: true,
+  status: true,
+  readingTime: true,
+  authorId: true,
+  author: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      profileImage: true
+    }
+  },
+  createdAt: true,
+  updatedAt: true,
+  publishedAt: true,
+  metaTitle: true,
+  metaDescription: true,
+  ogImage: true,
+  views: true,
+  isFeatured: true,
+  deletedAt: true
+} satisfies Prisma.PostSelect
+
 export function getPostInclude() {
   return postInclude
 }
@@ -212,7 +243,7 @@ export async function listPosts(query: PostQueryInput, visibility: 'public' | 'o
   const [items, total] = await prisma.$transaction([
     prisma.post.findMany({
       where,
-      include: postInclude,
+      select: postListSelect,
       orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }],
       skip,
       take: query.pageSize

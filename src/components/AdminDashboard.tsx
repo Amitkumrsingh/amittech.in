@@ -717,6 +717,11 @@ export default function AdminDashboard() {
                   value={form.html}
                   onChange={value => updateForm('html', value)}
                   onUploadImage={uploadArticleImage}
+                  onSave={() => {
+                    if (!form.title.trim()) return
+                    return savePost(form.status)
+                  }}
+                  autoSaveKey={`amittech-cms-draft-${form.id || 'new'}`}
                   documentTitle={form.title || 'Untitled article'}
                 />
               </FieldGroup>

@@ -43,18 +43,20 @@ const sanitizeOptions: sanitizeHtml.IOptions = {
   allowedAttributes: {
     a: ['href', 'name', 'target', 'rel'],
     img: ['src', 'alt', 'title', 'width', 'height', 'loading'],
-    iframe: ['src', 'width', 'height', 'allow', 'allowfullscreen', 'title'],
+    iframe: ['src', 'width', 'height', 'allow', 'allowfullscreen', 'title', 'loading', 'referrerpolicy', 'sandbox'],
     '*': ['class', 'style']
   },
   allowedStyles: {
     '*': {
       color: [safeColorPattern, safeRgbPattern],
       'background-color': [safeColorPattern, safeRgbPattern],
-      'font-size': [/^(0\.875|1\.125|1\.375)rem$/],
-      'text-align': [/^(left|center|right|justify)$/]
+      'font-size': [/^(0\.875|1|1\.125|1\.375|1\.75)rem$/],
+      'text-align': [/^(left|center|right|justify)$/],
+      'font-family': [/^(Inter|Sora|JetBrains Mono|Georgia|Arial)(?:,\s*(sans-serif|serif|monospace))?$/],
+      'margin-left': [/^\d{1,2}px$/]
     }
   },
-  allowedIframeHostnames: ['www.youtube.com', 'youtube.com', 'player.vimeo.com'],
+  allowedIframeHostnames: ['www.youtube.com', 'youtube.com', 'player.vimeo.com', 'excalidraw.com', 'www.excalidraw.com'],
   transformTags: {
     a: sanitizeHtml.simpleTransform('a', { rel: 'noopener noreferrer' })
   }

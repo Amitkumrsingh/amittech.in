@@ -37,6 +37,13 @@ type SlowRequestRow = {
   createdAt: Date
 }
 
+type MetricsOverviewRow = {
+  summary: SummaryRow | null
+  endpoints: EndpointRow[] | null
+  timeline: TimelineRow[] | null
+  slowest: SlowRequestRow[] | null
+}
+
 const EXCLUDED_METRIC_ROUTES = new Set(['/api/health', '/api/admin/metrics', '/api/admin/metrics/stream'])
 
 function toNumber(value: unknown, fallback = 0) {
@@ -120,8 +127,13 @@ export async function getApiMetricsOverview(windowMinutes: number) {
   const since = new Date(Date.now() - safeMinutes * 60 * 1000)
   const bucketUnit = safeMinutes <= 120 ? 'minute' : 'hour'
 
-  const [summaryRows, endpointRows, timelineRows, slowRows] = await Promise.all([
-    prisma.$queryRaw<SummaryRow[]>`
+  const [overview] = await prisma.$queryRaw<MetricsOverviewRow[]>`
+    WITH recent AS MATERIALIZED (
+      SELECT "route", "method", "statusCode", "latencyMs", "createdAt"
+      FROM "ApiMetric"
+      WHERE "createdAt" >= ${since}
+    ),
+    summary_rows AS (
       SELECT
         COUNT(*)::int AS "requests",
         SUM(CASE WHEN "statusCode" >= 400 THEN 1 ELSE 0 END)::int AS "errors",
@@ -130,10 +142,9 @@ export async function getApiMetricsOverview(windowMinutes: number) {
         (PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY "latencyMs"))::int AS "p50LatencyMs",
         (PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY "latencyMs"))::int AS "p95LatencyMs",
         MAX("latencyMs")::int AS "maxLatencyMs"
-      FROM "ApiMetric"
-      WHERE "createdAt" >= ${since}
-    `,
-    prisma.$queryRaw<EndpointRow[]>`
+      FROM recent
+    ),
+    endpoint_rows AS (
       SELECT
         "route",
         "method",
@@ -144,33 +155,39 @@ export async function getApiMetricsOverview(windowMinutes: number) {
         (PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY "latencyMs"))::int AS "p50LatencyMs",
         (PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY "latencyMs"))::int AS "p95LatencyMs",
         MAX("latencyMs")::int AS "maxLatencyMs"
-      FROM "ApiMetric"
-      WHERE "createdAt" >= ${since}
+      FROM recent
       GROUP BY "route", "method"
       ORDER BY "requests" DESC, "p95LatencyMs" DESC
       LIMIT 40
-    `,
-    prisma.$queryRaw<TimelineRow[]>`
+    ),
+    timeline_rows AS (
       SELECT
         DATE_TRUNC(${bucketUnit}, "createdAt") AS "bucket",
         COUNT(*)::int AS "requests",
         SUM(CASE WHEN "statusCode" >= 400 THEN 1 ELSE 0 END)::int AS "errors",
         AVG("latencyMs")::int AS "avgLatencyMs"
-      FROM "ApiMetric"
-      WHERE "createdAt" >= ${since}
+      FROM recent
       GROUP BY "bucket"
       ORDER BY "bucket" ASC
-    `,
-    prisma.$queryRaw<SlowRequestRow[]>`
+    ),
+    slow_rows AS (
       SELECT "route", "method", "statusCode", "latencyMs", "createdAt"
-      FROM "ApiMetric"
-      WHERE "createdAt" >= ${since}
+      FROM recent
       ORDER BY "latencyMs" DESC
       LIMIT 8
-    `
-  ])
+    )
+    SELECT
+      (SELECT row_to_json(summary_rows) FROM summary_rows) AS "summary",
+      COALESCE((SELECT json_agg(endpoint_rows) FROM endpoint_rows), '[]'::json) AS "endpoints",
+      COALESCE((SELECT json_agg(timeline_rows) FROM timeline_rows), '[]'::json) AS "timeline",
+      COALESCE((SELECT json_agg(slow_rows) FROM slow_rows), '[]'::json) AS "slowest"
+  `
 
-  const summary = summaryRows[0] || {
+  const endpointRows = overview?.endpoints || []
+  const timelineRows = overview?.timeline || []
+  const slowRows = overview?.slowest || []
+
+  const summary = overview?.summary || {
     requests: 0,
     errors: 0,
     serverErrors: 0,

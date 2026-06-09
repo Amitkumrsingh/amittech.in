@@ -9,6 +9,7 @@ const contentSecurityPolicyReportOnly = [
   "img-src 'self' data: blob: https:",
   "media-src 'self' https:",
   "font-src 'self' data:",
+  "frame-src 'self' https://excalidraw.com https://www.excalidraw.com",
   "style-src 'self' 'unsafe-inline'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://accounts.google.com",
   "connect-src 'self' https: wss:",

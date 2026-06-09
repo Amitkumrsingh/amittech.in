@@ -31,18 +31,18 @@ enum MediaType {
 }
 
 model User {
-  id           String      @id @default(cuid())
+  id           String     @id @default(cuid())
   name         String
-  email        String      @unique
+  email        String     @unique
   profileImage String?
-  role         Role        @default(USER)
-  status       UserStatus  @default(ACTIVE)
+  role         Role       @default(USER)
+  status       UserStatus @default(ACTIVE)
   posts        Post[]
   media        Media[]
   accounts     Account[]
   sessions     Session[]
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
   deletedAt    DateTime?
 
   @@index([role])
@@ -50,7 +50,7 @@ model User {
 }
 
 model Account {
-  id                String   @id @default(cuid())
+  id                String    @id @default(cuid())
   provider          String
   providerAccountId String
   accessToken       String?
@@ -58,9 +58,9 @@ model Account {
   expiresAt         DateTime?
   scope             String?
   userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@unique([provider, providerAccountId])
   @@index([userId])
@@ -129,6 +129,9 @@ model Post {
   @@index([publishedAt])
   @@index([isFeatured])
   @@index([deletedAt])
+  @@index([deletedAt, status, publishedAt, createdAt])
+  @@index([authorId, deletedAt, status, createdAt])
+  @@index([deletedAt, isFeatured, publishedAt, createdAt])
 }
 
 model Media {
@@ -149,6 +152,8 @@ model Media {
   @@index([postId])
   @@index([type])
   @@index([deletedAt])
+  @@index([uploadedById, deletedAt, createdAt])
+  @@index([createdAt])
 }
 
 model ApiMetric {
@@ -165,4 +170,6 @@ model ApiMetric {
   @@index([route, method, createdAt])
   @@index([statusCode])
   @@index([ok])
+  @@index([createdAt, latencyMs])
+  @@index([route, method, createdAt, latencyMs])
 }
