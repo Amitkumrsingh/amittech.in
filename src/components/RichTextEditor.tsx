@@ -1481,15 +1481,15 @@ function aiBlocksToHtml(blocks: AiBlock[] = []) {
   return blocks.map(block => {
     if (block.type === 'heading') {
       const level = Math.min(Math.max(block.level || 2, 1), 4)
-      return `<h${level}>${escapeHtml(block.text || '')}</h${level}>`
+      return `<h${level}>${formatInlineMarkdown(block.text || '')}</h${level}>`
     }
-    if (block.type === 'blockquote') return `<blockquote><p>${escapeHtml(block.text || '')}</p></blockquote>`
+    if (block.type === 'blockquote') return `<blockquote><p>${formatInlineMarkdown(block.text || '')}</p></blockquote>`
     if (block.type === 'code') return `<pre><code>${escapeHtml(block.text || '')}</code></pre>`
     if (block.type === 'list') {
-      const items = (block.items || []).map(item => `<li>${escapeHtml(item)}</li>`).join('')
+      const items = (block.items || []).map(item => `<li>${formatInlineMarkdown(item)}</li>`).join('')
       return `<ul>${items}</ul>`
     }
-    return `<p>${escapeHtml(block.text || '')}</p>`
+    return `<p>${formatInlineMarkdown(block.text || '')}</p>`
   }).join('')
 }
 
@@ -1498,7 +1498,7 @@ function textToParagraphs(text = '') {
     .split(/\n{2,}/)
     .map(part => part.trim())
     .filter(Boolean)
-    .map(part => `<p>${escapeHtml(part).replace(/\n/g, '<br>')}</p>`)
+    .map(part => `<p>${formatInlineMarkdown(part).replace(/\n/g, '<br>')}</p>`)
     .join('')
 }
 
@@ -1522,16 +1522,179 @@ function parseAiJsonText(text: string): AiResult | null {
   const trimmed = text.trim()
   if (!trimmed.startsWith('{')) return null
   try {
-    return JSON.parse(trimmed) as AiResult
+    const parsed = JSON.parse(trimmed)
+    if (typeof parsed === 'string') return parseAiJsonText(parsed)
+    return parsed as AiResult
   } catch {
     const match = trimmed.match(/\{[\s\S]*\}/)
-    if (!match) return null
+    if (!match) return parsePartialAiJsonText(trimmed)
     try {
-      return JSON.parse(match[0]) as AiResult
+      const parsed = JSON.parse(match[0])
+      if (typeof parsed === 'string') return parseAiJsonText(parsed)
+      return parsed as AiResult
     } catch {
-      return null
+      return parsePartialAiJsonText(trimmed)
     }
   }
+}
+
+function parsePartialAiJsonText(text: string): AiResult | null {
+  const result: AiResult = {
+    title: extractJsonStringField(text, 'title'),
+    excerpt: extractJsonStringField(text, 'excerpt'),
+    plainText: extractJsonStringField(text, 'plainText'),
+    markdown: extractJsonStringField(text, 'markdown'),
+    metaTitle: extractJsonStringField(text, 'metaTitle'),
+    metaDescription: extractJsonStringField(text, 'metaDescription'),
+    coverImagePrompt: extractJsonStringField(text, 'coverImagePrompt'),
+    imageAltText: extractJsonStringField(text, 'imageAltText'),
+    linkedinPost: extractJsonStringField(text, 'linkedinPost'),
+    summary: extractJsonStringField(text, 'summary'),
+    tags: extractJsonStringArrayField(text, 'tags'),
+    titleIdeas: extractJsonStringArrayField(text, 'titleIdeas'),
+    socialSnippets: extractJsonStringArrayField(text, 'socialSnippets'),
+    notes: extractJsonStringArrayField(text, 'notes'),
+    content: extractJsonContentBlocks(text)
+  }
+  const hasContent = Object.values(result).some(value => Array.isArray(value) ? value.length > 0 : Boolean(value))
+  return hasContent ? result : null
+}
+
+function extractJsonStringField(text: string, field: keyof AiResult) {
+  const match = text.match(new RegExp(`"${field}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`))
+  if (!match) return undefined
+  try {
+    return JSON.parse(`"${match[1]}"`) as string
+  } catch {
+    return match[1].replace(/\\"/g, '"').replace(/\\n/g, '\n')
+  }
+}
+
+function extractJsonStringArrayField(text: string, field: keyof AiResult) {
+  const value = extractBalancedJsonValue(text, String(field), '[', ']')
+  if (!value) return undefined
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : undefined
+  } catch {
+    return Array.from(value.matchAll(/"((?:\\.|[^"\\])*)"/g))
+      .map(match => {
+        try {
+          return JSON.parse(`"${match[1]}"`) as string
+        } catch {
+          return match[1]
+        }
+      })
+      .filter(Boolean)
+  }
+}
+
+function extractJsonContentBlocks(text: string): AiBlock[] | undefined {
+  const content = extractBalancedJsonValue(text, 'content', '[', ']') || extractUnclosedJsonArray(text, 'content')
+  if (!content) return undefined
+
+  try {
+    const parsed = JSON.parse(content)
+    if (Array.isArray(parsed)) return parsed.filter(isAiBlock).slice(0, 40)
+  } catch {
+    // Recover complete blocks from truncated JSON.
+  }
+
+  const blocks = extractCompleteJsonObjects(content)
+    .map(block => {
+      try {
+        return JSON.parse(block)
+      } catch {
+        return null
+      }
+    })
+    .filter(isAiBlock)
+
+  return blocks.length ? blocks.slice(0, 40) : undefined
+}
+
+function extractBalancedJsonValue(text: string, field: string, open: '[' | '{', close: ']' | '}') {
+  const fieldIndex = text.indexOf(`"${field}"`)
+  if (fieldIndex === -1) return undefined
+  const start = text.indexOf(open, fieldIndex)
+  if (start === -1) return undefined
+
+  let depth = 0
+  let inString = false
+  let escaped = false
+
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index]
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (char === '\\') {
+      escaped = true
+      continue
+    }
+    if (char === '"') {
+      inString = !inString
+      continue
+    }
+    if (inString) continue
+    if (char === open) depth += 1
+    if (char === close) depth -= 1
+    if (depth === 0) return text.slice(start, index + 1)
+  }
+
+  return undefined
+}
+
+function extractUnclosedJsonArray(text: string, field: string) {
+  const fieldIndex = text.indexOf(`"${field}"`)
+  if (fieldIndex === -1) return undefined
+  const start = text.indexOf('[', fieldIndex)
+  return start === -1 ? undefined : text.slice(start)
+}
+
+function extractCompleteJsonObjects(text: string) {
+  const objects: string[] = []
+  let start = -1
+  let depth = 0
+  let inString = false
+  let escaped = false
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index]
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (char === '\\') {
+      escaped = true
+      continue
+    }
+    if (char === '"') {
+      inString = !inString
+      continue
+    }
+    if (inString) continue
+    if (char === '{') {
+      if (depth === 0) start = index
+      depth += 1
+    }
+    if (char === '}') {
+      depth -= 1
+      if (depth === 0 && start !== -1) {
+        objects.push(text.slice(start, index + 1))
+        start = -1
+      }
+    }
+  }
+
+  return objects
+}
+
+function isAiBlock(value: unknown): value is AiBlock {
+  if (!value || typeof value !== 'object') return false
+  const block = value as AiBlock
+  return ['heading', 'paragraph', 'blockquote', 'code', 'list'].includes(block.type)
 }
 
 function htmlToPlainText(html: string) {
@@ -1609,6 +1772,12 @@ function scrollHeadingIntoView(text: string) {
 
 function escapeHtml(value: string) {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+function formatInlineMarkdown(value: string) {
+  return escapeHtml(value)
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
 }
 
 const selectClassName = 'h-8 rounded-lg border-0 bg-transparent px-2 text-[11px] font-semibold text-slate-700 outline-none transition hover:bg-slate-100 focus:bg-slate-100 disabled:opacity-40'

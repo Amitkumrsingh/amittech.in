@@ -69,6 +69,18 @@ const ACTION_LABELS: Record<AiAction, string> = {
   'format-content': 'Format content for readability'
 }
 
+const AI_OUTPUT_TOKEN_BUDGET: Record<AiAction, number> = {
+  'generate-draft': 8192,
+  rewrite: 4096,
+  seo: 2048,
+  'title-ideas': 1600,
+  tags: 1200,
+  excerpt: 1200,
+  'linkedin-post': 2400,
+  'image-prompt': 1800,
+  'format-content': 6144
+}
+
 function todayKey() {
   return new Date().toISOString().slice(0, 10)
 }
@@ -188,16 +200,183 @@ function stripJsonFence(value: string) {
 function parseGeminiJson(text: string): AiStructuredResponse {
   const cleaned = stripJsonFence(text)
   try {
-    return JSON.parse(cleaned) as AiStructuredResponse
+    const parsed = JSON.parse(cleaned)
+    if (typeof parsed === 'string') return parseGeminiJson(parsed)
+    return parsed as AiStructuredResponse
   } catch {
     const match = cleaned.match(/\{[\s\S]*\}/)
-    if (!match) return { plainText: cleaned }
+    if (!match) return parsePartialGeminiJson(cleaned) || { plainText: cleaned }
     try {
-      return JSON.parse(match[0]) as AiStructuredResponse
+      const parsed = JSON.parse(match[0])
+      if (typeof parsed === 'string') return parseGeminiJson(parsed)
+      return parsed as AiStructuredResponse
     } catch {
-      return { plainText: cleaned }
+      return parsePartialGeminiJson(cleaned) || { plainText: cleaned }
     }
   }
+}
+
+function parsePartialGeminiJson(text: string): AiStructuredResponse | null {
+  const trimmed = stripJsonFence(text)
+  if (!trimmed.startsWith('{')) return null
+
+  const result: AiStructuredResponse = {}
+  result.title = extractJsonStringField(trimmed, 'title')
+  result.excerpt = extractJsonStringField(trimmed, 'excerpt')
+  result.plainText = extractJsonStringField(trimmed, 'plainText')
+  result.markdown = extractJsonStringField(trimmed, 'markdown')
+  result.metaTitle = extractJsonStringField(trimmed, 'metaTitle')
+  result.metaDescription = extractJsonStringField(trimmed, 'metaDescription')
+  result.coverImagePrompt = extractJsonStringField(trimmed, 'coverImagePrompt')
+  result.imageAltText = extractJsonStringField(trimmed, 'imageAltText')
+  result.linkedinPost = extractJsonStringField(trimmed, 'linkedinPost')
+  result.summary = extractJsonStringField(trimmed, 'summary')
+  result.tags = extractJsonStringArrayField(trimmed, 'tags')
+  result.titleIdeas = extractJsonStringArrayField(trimmed, 'titleIdeas')
+  result.socialSnippets = extractJsonStringArrayField(trimmed, 'socialSnippets')
+  result.notes = extractJsonStringArrayField(trimmed, 'notes')
+  result.content = extractJsonContentBlocks(trimmed)
+
+  const hasUsefulContent = Object.entries(result).some(([, value]) => Array.isArray(value) ? value.length > 0 : Boolean(value))
+  return hasUsefulContent ? result : null
+}
+
+function extractJsonStringField(text: string, field: keyof AiStructuredResponse) {
+  const match = text.match(new RegExp(`"${field}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`))
+  if (!match) return undefined
+  try {
+    return JSON.parse(`"${match[1]}"`) as string
+  } catch {
+    return match[1].replace(/\\"/g, '"').replace(/\\n/g, '\n')
+  }
+}
+
+function extractJsonStringArrayField(text: string, field: keyof AiStructuredResponse) {
+  const value = extractBalancedJsonValue(text, String(field), '[', ']')
+  if (!value) return undefined
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : undefined
+  } catch {
+    const matches = Array.from(value.matchAll(/"((?:\\.|[^"\\])*)"/g))
+    return matches.map(match => {
+      try {
+        return JSON.parse(`"${match[1]}"`) as string
+      } catch {
+        return match[1]
+      }
+    }).filter(Boolean)
+  }
+}
+
+function extractJsonContentBlocks(text: string): AiBlock[] | undefined {
+  const contentValue = extractBalancedJsonValue(text, 'content', '[', ']') || extractUnclosedJsonArray(text, 'content')
+  if (!contentValue) return undefined
+
+  try {
+    const parsed = JSON.parse(contentValue)
+    if (Array.isArray(parsed)) return parsed.filter(isAiBlock).slice(0, 40)
+  } catch {
+    // Fall through to per-object recovery for truncated JSON.
+  }
+
+  const blocks = extractCompleteJsonObjects(contentValue)
+    .map(block => {
+      try {
+        return JSON.parse(block)
+      } catch {
+        return null
+      }
+    })
+    .filter(isAiBlock)
+
+  return blocks.length ? blocks.slice(0, 40) : undefined
+}
+
+function extractBalancedJsonValue(text: string, field: string, open: '[' | '{', close: ']' | '}') {
+  const fieldIndex = text.indexOf(`"${field}"`)
+  if (fieldIndex === -1) return undefined
+  const valueStart = text.indexOf(open, fieldIndex)
+  if (valueStart === -1) return undefined
+
+  let depth = 0
+  let inString = false
+  let escaped = false
+
+  for (let index = valueStart; index < text.length; index += 1) {
+    const char = text[index]
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (char === '\\') {
+      escaped = true
+      continue
+    }
+    if (char === '"') {
+      inString = !inString
+      continue
+    }
+    if (inString) continue
+    if (char === open) depth += 1
+    if (char === close) depth -= 1
+    if (depth === 0) return text.slice(valueStart, index + 1)
+  }
+
+  return undefined
+}
+
+function extractUnclosedJsonArray(text: string, field: string) {
+  const fieldIndex = text.indexOf(`"${field}"`)
+  if (fieldIndex === -1) return undefined
+  const valueStart = text.indexOf('[', fieldIndex)
+  if (valueStart === -1) return undefined
+  return text.slice(valueStart)
+}
+
+function extractCompleteJsonObjects(text: string) {
+  const objects: string[] = []
+  let start = -1
+  let depth = 0
+  let inString = false
+  let escaped = false
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index]
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (char === '\\') {
+      escaped = true
+      continue
+    }
+    if (char === '"') {
+      inString = !inString
+      continue
+    }
+    if (inString) continue
+
+    if (char === '{') {
+      if (depth === 0) start = index
+      depth += 1
+    }
+    if (char === '}') {
+      depth -= 1
+      if (depth === 0 && start !== -1) {
+        objects.push(text.slice(start, index + 1))
+        start = -1
+      }
+    }
+  }
+
+  return objects
+}
+
+function isAiBlock(value: unknown): value is AiBlock {
+  if (!value || typeof value !== 'object') return false
+  const block = value as AiBlock
+  return ['heading', 'paragraph', 'blockquote', 'code', 'list'].includes(block.type)
 }
 
 function normalizeAiResponse(value: AiStructuredResponse): AiStructuredResponse {
@@ -215,7 +394,7 @@ function normalizeAiResponse(value: AiStructuredResponse): AiStructuredResponse 
   }
 }
 
-async function callGemini(prompt: string): Promise<AiStructuredResponse> {
+async function callGemini(prompt: string, action: AiAction): Promise<AiStructuredResponse> {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) throw new ApiError(501, 'Gemini API is not configured. Set GEMINI_API_KEY.', 'AI_NOT_CONFIGURED')
 
@@ -228,7 +407,7 @@ async function callGemini(prompt: string): Promise<AiStructuredResponse> {
       generationConfig: {
         temperature: 0.72,
         topP: 0.9,
-        maxOutputTokens: 2400,
+        maxOutputTokens: AI_OUTPUT_TOKEN_BUDGET[action],
         responseMimeType: 'application/json'
       }
     })
@@ -334,7 +513,7 @@ export function createAiRoute(action: AiAction) {
     await assertCanUseAiForPost(input, user)
     checkAiRateLimit(user)
 
-    const result = await callGemini(buildPrompt(action, input))
+    const result = await callGemini(buildPrompt(action, input), action)
     logAiUsage(action, user, input)
 
     return ok(res, {
