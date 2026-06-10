@@ -15,6 +15,7 @@ export type AiAction =
   | 'linkedin-post'
   | 'image-prompt'
   | 'format-content'
+  | 'system-diagram'
 
 type AiInput = z.infer<typeof aiGenerateSchema>
 
@@ -50,6 +51,29 @@ type AiImageResponse = {
   text?: string
 }
 
+type AiDiagramNode = {
+  id: string
+  label: string
+  type?: string
+  group?: string
+  description?: string
+}
+
+type AiDiagramEdge = {
+  from: string
+  to: string
+  label?: string
+}
+
+export type AiDiagramResponse = {
+  diagramTitle?: string
+  summary?: string
+  nodes: AiDiagramNode[]
+  edges: AiDiagramEdge[]
+  groups?: string[]
+  notes?: string[]
+}
+
 type RateBucket = {
   date: string
   count: number
@@ -66,7 +90,8 @@ const ACTION_LABELS: Record<AiAction, string> = {
   excerpt: 'Generate excerpt',
   'linkedin-post': 'Generate LinkedIn post',
   'image-prompt': 'Generate cover image prompt',
-  'format-content': 'Format content for readability'
+  'format-content': 'Format content for readability',
+  'system-diagram': 'Generate system design diagram'
 }
 
 const AI_OUTPUT_TOKEN_BUDGET: Record<AiAction, number> = {
@@ -78,7 +103,8 @@ const AI_OUTPUT_TOKEN_BUDGET: Record<AiAction, number> = {
   excerpt: 1200,
   'linkedin-post': 2400,
   'image-prompt': 1800,
-  'format-content': 6144
+  'format-content': 6144,
+  'system-diagram': 4096
 }
 
 function todayKey() {
@@ -186,6 +212,53 @@ Action-specific guidance:
 - excerpt: return one excerpt under 240 characters.
 - linkedin-post: return linkedinPost and socialSnippets.
 - image-prompt: return coverImagePrompt and imageAltText. Do not generate image binary.
+`.trim()
+}
+
+function buildDiagramPrompt(input: AiInput) {
+  const keywords = normalizeKeywords(input.keywords)
+
+  return `
+You are a senior system design diagram assistant inside a private engineering blog CMS.
+Read the article context and extract a clean architecture diagram that can be edited in Excalidraw.
+
+Goal:
+- Build a readable system design diagram from the written content.
+- Prefer concrete components mentioned or strongly implied by the article.
+- Do not invent companies, metrics, or unrelated infrastructure.
+- If the article is conceptual, create a generic but useful architecture for that topic.
+
+Diagram rules:
+- 6 to 12 nodes.
+- 7 to 16 directional edges.
+- Every edge must have a short label like "HTTP", "event", "lookup", "write", "cache hit", "redirect".
+- Use stable lowercase ids with hyphens.
+- Group nodes into simple layers when useful: client, edge, services, data, async, observability.
+- Keep labels short enough to fit in boxes.
+
+Context:
+- Topic: ${input.topic || input.title || 'Not provided'}
+- Title: ${input.title || 'Not provided'}
+- Category: ${input.category || 'Not provided'}
+- Keywords: ${keywords || 'Not provided'}
+- Notes: ${truncate(input.notes || '') || 'Not provided'}
+- Excerpt: ${truncate(input.excerpt || '') || 'Not provided'}
+- Article text: ${truncate(input.contentText || '', 9000) || 'Not provided'}
+- HTML context: ${truncate(input.html || '', 4000) || 'Not provided'}
+
+Return JSON only. No markdown fences. Shape:
+{
+  "diagramTitle": "Short diagram title",
+  "summary": "One sentence explaining the diagram",
+  "groups": ["client", "edge", "services", "data"],
+  "nodes": [
+    { "id": "client", "label": "Client", "type": "client", "group": "client", "description": "Who starts the flow" }
+  ],
+  "edges": [
+    { "from": "client", "to": "api-gateway", "label": "HTTP request" }
+  ],
+  "notes": ["Any assumption or missing detail"]
+}
 `.trim()
 }
 
@@ -394,6 +467,52 @@ function normalizeAiResponse(value: AiStructuredResponse): AiStructuredResponse 
   }
 }
 
+function normalizeDiagramResponse(value: unknown): AiDiagramResponse {
+  const source = value && typeof value === 'object' ? value as Partial<AiDiagramResponse> : {}
+  const nodes = Array.isArray(source.nodes)
+    ? source.nodes
+        .map((node, index) => ({
+          id: normalizeDiagramId(node?.id || node?.label || `node-${index + 1}`),
+          label: String(node?.label || node?.id || `Node ${index + 1}`).slice(0, 42),
+          type: node?.type ? String(node.type).slice(0, 32) : undefined,
+          group: node?.group ? String(node.group).slice(0, 32) : undefined,
+          description: node?.description ? String(node.description).slice(0, 140) : undefined
+        }))
+        .filter(node => node.id && node.label)
+        .slice(0, 14)
+    : []
+
+  const nodeIds = new Set(nodes.map(node => node.id))
+  const edges = Array.isArray(source.edges)
+    ? source.edges
+        .map(edge => ({
+          from: normalizeDiagramId(edge?.from || ''),
+          to: normalizeDiagramId(edge?.to || ''),
+          label: edge?.label ? String(edge.label).slice(0, 38) : undefined
+        }))
+        .filter(edge => edge.from && edge.to && edge.from !== edge.to && nodeIds.has(edge.from) && nodeIds.has(edge.to))
+        .slice(0, 20)
+    : []
+
+  return {
+    diagramTitle: source.diagramTitle ? String(source.diagramTitle).slice(0, 120) : 'System design diagram',
+    summary: source.summary ? String(source.summary).slice(0, 260) : undefined,
+    groups: Array.isArray(source.groups) ? source.groups.map(group => String(group).slice(0, 32)).filter(Boolean).slice(0, 8) : undefined,
+    nodes,
+    edges,
+    notes: Array.isArray(source.notes) ? source.notes.map(note => String(note).slice(0, 180)).filter(Boolean).slice(0, 6) : undefined
+  }
+}
+
+function normalizeDiagramId(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48)
+}
+
 async function callGemini(prompt: string, action: AiAction): Promise<AiStructuredResponse> {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) throw new ApiError(501, 'Gemini API is not configured. Set GEMINI_API_KEY.', 'AI_NOT_CONFIGURED')
@@ -540,6 +659,27 @@ export function createAiImageRoute() {
 
     return ok(res, {
       action: 'generate-image',
+      generatedAt: new Date().toISOString(),
+      result
+    })
+  })
+}
+
+export function createAiDiagramRoute() {
+  return withApiErrorHandling(async function handler(req: NextApiRequest, res: NextApiResponse) {
+    if (req.method !== 'POST') return methodNotAllowed(res, ['POST'])
+
+    const user = await requireUser(req)
+    const input = aiGenerateSchema.parse(req.body)
+
+    await assertCanUseAiForPost(input, user)
+    checkAiRateLimit(user)
+
+    const result = normalizeDiagramResponse(await callGemini(buildDiagramPrompt(input), 'system-diagram'))
+    logAiUsage('system-diagram', user, input)
+
+    return ok(res, {
+      action: 'system-diagram',
       generatedAt: new Date().toISOString(),
       result
     })

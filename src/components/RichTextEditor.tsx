@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
+import dynamic from 'next/dynamic'
 import { Extension, Node, mergeAttributes, type Editor } from '@tiptap/core'
 import Color from '@tiptap/extension-color'
 import Highlight from '@tiptap/extension-highlight'
@@ -61,6 +62,13 @@ import {
 import { createPortal } from 'react-dom'
 import { cn } from '../lib/classes'
 import MicroButton from './MicroButton'
+import type { AppState, BinaryFiles, ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types'
+import type { ExcalidrawElement, NonDeleted } from '@excalidraw/excalidraw/element/types'
+
+const ExcalidrawCanvas = dynamic(async () => (await import('@excalidraw/excalidraw')).Excalidraw, {
+  ssr: false,
+  loading: () => <div className="grid h-full place-items-center bg-white text-sm font-semibold text-slate-500">Loading Excalidraw...</div>
+})
 
 type RichTextEditorProps = {
   value: string
@@ -107,6 +115,7 @@ type AiAction =
   | 'linkedin-post'
   | 'image-prompt'
   | 'format-content'
+  | 'system-diagram'
 
 type AiBlock = {
   type: 'heading' | 'paragraph' | 'blockquote' | 'code' | 'list'
@@ -138,6 +147,29 @@ type AiImageResult = {
   mimeType?: string
   prompt?: string
   text?: string
+}
+
+type AiDiagramNode = {
+  id: string
+  label: string
+  type?: string
+  group?: string
+  description?: string
+}
+
+type AiDiagramEdge = {
+  from: string
+  to: string
+  label?: string
+}
+
+type AiDiagramResult = {
+  diagramTitle?: string
+  summary?: string
+  nodes: AiDiagramNode[]
+  edges: AiDiagramEdge[]
+  groups?: string[]
+  notes?: string[]
 }
 
 type AiForm = {
@@ -279,6 +311,9 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
   const [uploading, setUploading] = useState(false)
   const [insertMenuOpen, setInsertMenuOpen] = useState(false)
   const [diagramOpen, setDiagramOpen] = useState(false)
+  const [diagramLoading, setDiagramLoading] = useState(false)
+  const [diagramError, setDiagramError] = useState('')
+  const [diagramSpec, setDiagramSpec] = useState<AiDiagramResult | null>(null)
   const [aiOpen, setAiOpen] = useState(false)
   const [aiWorkflow, setAiWorkflow] = useState<AiWorkflow>('draft')
   const [aiLoading, setAiLoading] = useState(false)
@@ -440,6 +475,54 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
     if (!editor) return
     editor.chain().focus().insertContent({ type: 'diagramBlock', attrs: { src: 'https://excalidraw.com', title: 'System design diagram' } }).run()
     setDiagramOpen(false)
+  }
+
+  function openDiagramAssistant() {
+    setDiagramOpen(true)
+    if (!diagramSpec) void generateSystemDiagram()
+  }
+
+  async function generateSystemDiagram() {
+    if (!editor) return
+    setDiagramLoading(true)
+    setDiagramError('')
+    try {
+      const response = await fetch('/api/ai/system-diagram', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          postId,
+          topic: aiContext?.title || documentTitle,
+          category: aiContext?.category,
+          keywords: aiContext?.tags,
+          title: aiContext?.title || documentTitle,
+          excerpt: aiContext?.excerpt,
+          html: value,
+          contentText: editor.getText()
+        })
+      })
+      const payload = await response.json() as { ok: boolean; error?: string; data?: { result: AiDiagramResult } }
+      if (!response.ok || !payload.ok) throw new Error(payload.error || 'Diagram generation failed')
+      setDiagramSpec(payload.data?.result || null)
+    } catch (error) {
+      setDiagramError(error instanceof Error ? error.message : 'Diagram generation failed')
+    } finally {
+      setDiagramLoading(false)
+    }
+  }
+
+  async function insertDiagramImage(blob: Blob) {
+    if (!editor) return
+    const file = new File([blob], `system-design-diagram-${Date.now()}.png`, { type: blob.type || 'image/png' })
+
+    if (onUploadImage) {
+      await uploadImage(file)
+      return
+    }
+
+    const dataUrl = await blobToDataUrl(blob)
+    editor.chain().focus().setImage({ src: dataUrl }).run()
   }
 
   function getSelectedText() {
@@ -614,7 +697,7 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
       onSave={saveDraftSnapshot}
       onToggleInsertMenu={() => setInsertMenuOpen(current => !current)}
       onCloseInsertMenu={() => setInsertMenuOpen(false)}
-      onOpenDiagram={() => setDiagramOpen(true)}
+      onOpenDiagram={openDiagramAssistant}
       onOpenAi={openAiAssistant}
     />
   )
@@ -638,27 +721,15 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
       )}
       {diagramOpen && mounted
         ? createPortal(
-            <div className="fixed inset-0 z-[1000] grid place-items-center bg-black/80 p-3 backdrop-blur" role="dialog" aria-modal="true" aria-label="Excalidraw diagram editor">
-              <div className="flex h-[90vh] w-[95vw] flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-950 shadow-2xl">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3 text-white">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-300">System design diagram</p>
-                    <h3 className="mt-1 text-sm font-semibold">Excalidraw workspace</h3>
-                  </div>
-                  <div className="flex gap-2">
-                    <MicroButton type="button" onClick={insertDiagram} className="inline-flex items-center gap-2 rounded-full bg-cyan-400 px-4 py-2 text-xs font-bold text-slate-950">
-                      <Columns3 size={15} />
-                      Insert into post
-                    </MicroButton>
-                    <MicroButton type="button" onClick={() => setDiagramOpen(false)} className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-xs font-semibold text-slate-200">
-                      <X size={15} />
-                      Close
-                    </MicroButton>
-                  </div>
-                </div>
-                <iframe title="Excalidraw" src="https://excalidraw.com" className="min-h-0 flex-1 bg-white" />
-              </div>
-            </div>,
+            <SystemDiagramModal
+              spec={diagramSpec}
+              loading={diagramLoading}
+              error={diagramError}
+              onGenerate={generateSystemDiagram}
+              onInsertBlank={insertDiagram}
+              onInsertImage={insertDiagramImage}
+              onClose={() => setDiagramOpen(false)}
+            />,
             document.body
           )
         : null}
@@ -1024,6 +1095,172 @@ function OutlineSidebar({ outline, revision }: { outline: OutlineItem[]; revisio
         )}
       </div>
     </aside>
+  )
+}
+
+function SystemDiagramModal({
+  spec,
+  loading,
+  error,
+  onGenerate,
+  onInsertBlank,
+  onInsertImage,
+  onClose
+}: {
+  spec: AiDiagramResult | null
+  loading: boolean
+  error: string
+  onGenerate: () => Promise<void>
+  onInsertBlank: () => void
+  onInsertImage: (blob: Blob) => Promise<void>
+  onClose: () => void
+}) {
+  const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null)
+  const [elements, setElements] = useState<readonly NonDeleted<ExcalidrawElement>[]>([])
+  const [appState, setAppState] = useState<Partial<AppState>>(getDiagramAppState())
+  const [files, setFiles] = useState<BinaryFiles>({})
+  const [exporting, setExporting] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadScene() {
+      if (!spec?.nodes?.length) return
+      const nextElements = await buildDiagramElements(spec)
+      if (cancelled) return
+      const nextAppState = getDiagramAppState()
+      setElements(nextElements)
+      setAppState(nextAppState)
+      api?.updateScene({ elements: nextElements, appState: nextAppState as AppState })
+      window.setTimeout(() => api?.scrollToContent(nextElements, { fitToContent: true }), 80)
+    }
+
+    void loadScene()
+    return () => {
+      cancelled = true
+    }
+  }, [api, spec])
+
+  async function exportImage() {
+    const sceneElements = api?.getSceneElements() || elements
+    if (!sceneElements.length) return
+
+    setExporting(true)
+    try {
+      const { exportToBlob } = await import('@excalidraw/excalidraw')
+      const blob = await exportToBlob({
+        elements: sceneElements,
+        appState: {
+          ...api?.getAppState(),
+          ...getDiagramAppState(),
+          exportBackground: true,
+          viewBackgroundColor: '#ffffff'
+        },
+        files: api?.getFiles() || files,
+        mimeType: 'image/png',
+        exportPadding: 36
+      })
+      await onInsertImage(blob)
+      onClose()
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[1000] grid place-items-center bg-black/80 p-3 backdrop-blur" role="dialog" aria-modal="true" aria-label="AI generated Excalidraw system design diagram">
+      <div className="flex h-[92vh] w-[96vw] flex-col overflow-hidden rounded-2xl border border-white/15 bg-slate-950 shadow-2xl">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3 text-white">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-cyan-400/15 text-cyan-200">
+              <Columns3 size={20} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-300">AI system design diagram</p>
+              <h3 className="mt-1 truncate text-sm font-semibold">{spec?.diagramTitle || 'Generate from article content'}</h3>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <MicroButton type="button" onClick={onGenerate} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-cyan-300/30 px-3 py-2 text-xs font-bold text-cyan-100 transition hover:bg-cyan-300/10 disabled:opacity-50">
+              <RefreshCw size={15} />
+              {loading ? 'Generating...' : spec ? 'Regenerate' : 'Generate'}
+            </MicroButton>
+            <MicroButton type="button" onClick={exportImage} disabled={!elements.length || exporting} className="inline-flex items-center gap-2 rounded-xl bg-cyan-300 px-3 py-2 text-xs font-bold text-slate-950 transition hover:bg-cyan-200 disabled:opacity-50">
+              <ImagePlus size={15} />
+              {exporting ? 'Inserting...' : 'Insert as image'}
+            </MicroButton>
+            <MicroButton type="button" onClick={onInsertBlank} className="inline-flex items-center gap-2 rounded-xl border border-white/15 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/10">
+              Blank frame
+            </MicroButton>
+            <MicroButton type="button" onClick={onClose} className="toolbar-tooltip grid h-9 w-9 place-items-center rounded-xl border border-white/15 text-slate-200 transition hover:bg-white/10" data-tooltip="Close">
+              <X size={15} />
+            </MicroButton>
+          </div>
+        </div>
+
+        <div className="grid min-h-0 flex-1 lg:grid-cols-[310px_1fr]">
+          <aside className="min-h-0 overflow-y-auto border-r border-white/10 bg-white/[0.025] p-4">
+            {error ? <p className="rounded-xl border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-200">{error}</p> : null}
+            {spec?.summary ? (
+              <div className="rounded-xl border border-white/10 bg-black/25 p-3 text-sm leading-6 text-slate-300">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-300">Summary</p>
+                <p className="mt-2">{spec.summary}</p>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-white/10 bg-black/25 p-4 text-sm leading-6 text-slate-400">
+                Generate a diagram from the current article, review it here, edit anything on the canvas, then insert it as an image.
+              </div>
+            )}
+
+            {spec?.nodes?.length ? (
+              <div className="mt-4">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Components</p>
+                <div className="mt-2 space-y-2">
+                  {spec.nodes.map(node => (
+                    <div key={node.id} className="rounded-lg border border-white/10 bg-white/[0.035] p-3">
+                      <p className="text-sm font-semibold text-slate-100">{node.label}</p>
+                      <p className="mt-1 text-xs text-cyan-200">{node.group || node.type || 'component'}</p>
+                      {node.description ? <p className="mt-2 text-xs leading-5 text-slate-400">{node.description}</p> : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {spec?.notes?.length ? (
+              <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.035] p-3">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Assumptions</p>
+                <ul className="mt-2 space-y-1 text-xs leading-5 text-slate-400">
+                  {spec.notes.map(note => <li key={note}>{note}</li>)}
+                </ul>
+              </div>
+            ) : null}
+          </aside>
+
+          <div className="min-h-0 bg-white">
+            {spec?.nodes?.length || elements.length ? (
+              <ExcalidrawCanvas
+                initialData={{ elements, appState }}
+                excalidrawAPI={setApi}
+                onChange={(nextElements, nextAppState, nextFiles) => {
+                  setElements(nextElements as readonly NonDeleted<ExcalidrawElement>[])
+                  setAppState(nextAppState)
+                  setFiles(nextFiles)
+                }}
+              />
+            ) : (
+              <div className="grid h-full place-items-center bg-slate-50 p-8 text-center text-slate-600">
+                <div>
+                  <Columns3 className="mx-auto text-cyan-600" size={34} />
+                  <h4 className="mt-4 text-2xl font-semibold text-slate-950">Diagram will appear here</h4>
+                  <p className="mx-auto mt-3 max-w-md text-sm leading-6">Click Generate to turn the current article into an editable Excalidraw system design diagram.</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -1475,6 +1712,191 @@ function Swatches({ label, swatches, disabled, onPick }: { label: string; swatch
       ))}
     </div>
   )
+}
+
+function getDiagramAppState(): Partial<AppState> {
+  return {
+    theme: 'light',
+    viewBackgroundColor: '#ffffff',
+    currentItemStrokeColor: '#0f172a',
+    currentItemBackgroundColor: '#e0f2fe'
+  }
+}
+
+async function buildDiagramElements(spec: AiDiagramResult): Promise<readonly NonDeleted<ExcalidrawElement>[]> {
+  const { convertToExcalidrawElements } = await import('@excalidraw/excalidraw')
+  const groups = getDiagramGroups(spec)
+  const nodePositions = new Map<string, { x: number; y: number; width: number; height: number }>()
+  const laneWidth = 245
+  const cardWidth = 184
+  const cardHeight = 82
+  const top = 145
+  const left = 64
+
+  groups.forEach((group, groupIndex) => {
+    const groupNodes = spec.nodes.filter(node => (node.group || 'system') === group)
+    groupNodes.forEach((node, nodeIndex) => {
+      nodePositions.set(node.id, {
+        x: left + groupIndex * laneWidth,
+        y: top + nodeIndex * 134,
+        width: cardWidth,
+        height: cardHeight
+      })
+    })
+  })
+
+  const skeleton: Array<Record<string, unknown>> = [
+    {
+      type: 'text',
+      x: left,
+      y: 42,
+      width: Math.max(520, groups.length * laneWidth - 40),
+      text: spec.diagramTitle || 'System design diagram',
+      fontSize: 28,
+      strokeColor: '#0f172a'
+    },
+    ...(spec.summary ? [{
+      type: 'text',
+      x: left,
+      y: 82,
+      width: Math.max(520, groups.length * laneWidth - 40),
+      text: spec.summary,
+      fontSize: 15,
+      strokeColor: '#475569'
+    }] : [])
+  ]
+
+  spec.edges.forEach((edge, index) => {
+    const from = nodePositions.get(edge.from)
+    const to = nodePositions.get(edge.to)
+    if (!from || !to) return
+    const startX = from.x + from.width
+    const startY = from.y + from.height / 2
+    const endX = to.x
+    const endY = to.y + to.height / 2
+    skeleton.push({
+      type: 'arrow',
+      id: `edge-${index}-${edge.from}-${edge.to}`,
+      x: startX,
+      y: startY,
+      points: [[0, 0], [endX - startX, endY - startY]],
+      strokeColor: '#0f766e',
+      strokeWidth: 2,
+      roughness: 1,
+      endArrowhead: 'arrow',
+      label: edge.label ? {
+        text: edge.label,
+        fontSize: 13,
+        strokeColor: '#0f766e',
+        backgroundColor: '#ecfeff'
+      } : undefined
+    })
+  })
+
+  groups.forEach((group, groupIndex) => {
+    const groupNodes = spec.nodes.filter(node => (node.group || 'system') === group)
+    const maxY = top + Math.max(groupNodes.length - 1, 0) * 134 + cardHeight + 26
+    const laneX = left + groupIndex * laneWidth - 18
+    skeleton.push({
+      type: 'rectangle',
+      x: laneX,
+      y: 118,
+      width: cardWidth + 36,
+      height: Math.max(160, maxY - 118),
+      strokeColor: '#cbd5e1',
+      backgroundColor: '#f8fafc',
+      fillStyle: 'solid',
+      strokeStyle: 'dashed',
+      roughness: 0.8,
+      opacity: 65
+    })
+    skeleton.push({
+      type: 'text',
+      x: laneX + 14,
+      y: 126,
+      width: cardWidth + 10,
+      text: toTitleCase(group),
+      fontSize: 14,
+      strokeColor: '#0369a1'
+    })
+  })
+
+  spec.nodes.forEach(node => {
+    const position = nodePositions.get(node.id)
+    if (!position) return
+    const colors = getNodeColors(node)
+    skeleton.push({
+      type: 'rectangle',
+      id: node.id,
+      x: position.x,
+      y: position.y,
+      width: position.width,
+      height: position.height,
+      strokeColor: colors.stroke,
+      backgroundColor: colors.fill,
+      fillStyle: 'solid',
+      roundness: { type: 3 },
+      roughness: 1.15,
+      strokeWidth: 2
+    })
+    skeleton.push({
+      type: 'text',
+      x: position.x + 14,
+      y: position.y + 14,
+      width: position.width - 28,
+      text: node.label,
+      fontSize: node.label.length > 22 ? 15 : 17,
+      strokeColor: '#0f172a'
+    })
+    if (node.type || node.description) {
+      skeleton.push({
+        type: 'text',
+        x: position.x + 14,
+        y: position.y + 46,
+        width: position.width - 28,
+        text: node.type || truncateLabel(node.description || '', 34),
+        fontSize: 11,
+        strokeColor: '#64748b'
+      })
+    }
+  })
+
+  return convertToExcalidrawElements(skeleton as never, { regenerateIds: false }) as readonly NonDeleted<ExcalidrawElement>[]
+}
+
+function getDiagramGroups(spec: AiDiagramResult) {
+  const groups = [
+    ...(spec.groups || []),
+    ...spec.nodes.map(node => node.group || 'system')
+  ].map(group => group || 'system')
+  return Array.from(new Set(groups)).slice(0, 8)
+}
+
+function getNodeColors(node: AiDiagramNode) {
+  const key = `${node.group || ''} ${node.type || ''}`.toLowerCase()
+  if (/client|user|browser|mobile/.test(key)) return { stroke: '#0284c7', fill: '#e0f2fe' }
+  if (/edge|gateway|cdn|load/.test(key)) return { stroke: '#0891b2', fill: '#cffafe' }
+  if (/queue|event|kafka|async|stream/.test(key)) return { stroke: '#7c3aed', fill: '#ede9fe' }
+  if (/data|db|database|cache|redis|store|postgres/.test(key)) return { stroke: '#0f766e', fill: '#ccfbf1' }
+  if (/observability|monitor|log|metric/.test(key)) return { stroke: '#b45309', fill: '#fef3c7' }
+  return { stroke: '#475569', fill: '#f1f5f9' }
+}
+
+function toTitleCase(value: string) {
+  return value.replace(/[-_]/g, ' ').replace(/\b\w/g, char => char.toUpperCase())
+}
+
+function truncateLabel(value: string, max: number) {
+  return value.length > max ? `${value.slice(0, max - 1)}...` : value
+}
+
+function blobToDataUrl(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = () => reject(reader.error || new Error('Could not read image blob'))
+    reader.readAsDataURL(blob)
+  })
 }
 
 function aiBlocksToHtml(blocks: AiBlock[] = []) {
