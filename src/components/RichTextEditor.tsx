@@ -56,6 +56,7 @@ import {
   Undo2,
   Upload,
   WandSparkles,
+  Workflow,
   X,
   type LucideIcon
 } from 'lucide-react'
@@ -303,6 +304,10 @@ const fontFamilies = [
   { label: 'Mono', value: 'JetBrains Mono, monospace' }
 ]
 const fontSizes = ['0.875rem', '1rem', '1.125rem', '1.375rem', '1.75rem']
+const mermaidTemplate = `flowchart LR
+    Client[Client] --> API[API Gateway]
+    API --> Service[Application Service]
+    Service --> Database[(Database)]`
 
 export default function RichTextEditor({ value, onChange, onUploadImage, onSave, autoSaveKey, documentTitle, postId, aiContext, onApplyAiMetadata }: RichTextEditorProps) {
   const [sourceMode, setSourceMode] = useState(false)
@@ -966,12 +971,21 @@ function EditorToolbar({
     onCloseInsertMenu()
   }
 
+  function insertMermaidDiagram() {
+    editor.chain().focus().insertContent({
+      type: 'codeBlock',
+      content: [{ type: 'text', text: mermaidTemplate }]
+    }).run()
+    onCloseInsertMenu()
+  }
+
   return (
     <div className="relative flex flex-wrap items-center gap-1.5 border-b border-slate-200/70 px-3 py-2 shadow-[0_8px_18px_-18px_rgba(15,23,42,.8)]">
       {insertMenuOpen ? (
         <div className="absolute left-3 top-12 z-20 w-72 overflow-hidden rounded-xl border border-slate-200 bg-white py-2 text-sm shadow-2xl">
           <InsertButton icon={Table2} onClick={() => { editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(); onCloseInsertMenu() }}>Table</InsertButton>
           <InsertButton icon={Code2} onClick={() => { editor.chain().focus().toggleCodeBlock().run(); onCloseInsertMenu() }}>Code block</InsertButton>
+          <InsertButton icon={Workflow} onClick={insertMermaidDiagram}>Mermaid diagram</InsertButton>
           <InsertButton icon={Quote} onClick={() => { editor.chain().focus().toggleBlockquote().run(); onCloseInsertMenu() }}>Blockquote</InsertButton>
           <InsertButton icon={Minus} onClick={() => { editor.chain().focus().setHorizontalRule().run(); onCloseInsertMenu() }}>Divider</InsertButton>
           <InsertButton icon={Highlighter} onClick={insertCallout}>Callout box</InsertButton>

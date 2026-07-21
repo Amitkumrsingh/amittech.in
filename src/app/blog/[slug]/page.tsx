@@ -6,6 +6,7 @@ import ArticleMeta from '../../../components/ArticleMeta'
 import ArticleReadingProgress from '../../../components/ArticleReadingProgress'
 import BlogCover from '../../../components/BlogCover'
 import JsonLd from '../../../components/JsonLd'
+import MermaidArticleContent from '../../../components/MermaidArticleContent'
 import { getArticleTocItems } from '../../../features/blog'
 import { getAllBlogPosts, getArticleSchema, getBlogPostBySlug, getBlogPostPath, getBlogPosts, getBlogPostUrl, getRelatedPosts } from '../../../lib/blog'
 import { SEO_KEYWORDS, absoluteUrl, getOgImageUrl, SITE_NAME } from '../../../lib/site'
@@ -207,12 +208,7 @@ function CmsArticleBody({ html }: { html?: string | null }) {
     )
   }
 
-  return (
-    <div
-      className="cms-rich-content mt-10 space-y-6 text-lg leading-9 text-slate-300 [&_figure]:my-8 [&_h2]:scroll-mt-28 [&_h2]:pt-4 [&_h3]:scroll-mt-28 [&_h3]:pt-3 [&_table]:w-full [&_table]:overflow-hidden [&_table]:rounded-2xl [&_td]:border [&_td]:border-white/10 [&_td]:p-3 [&_th]:border [&_th]:border-white/10 [&_th]:p-3"
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
-  )
+  return <MermaidArticleContent html={html} />
 }
 
 function AuthorCard({ url, title }: { url: string; title: string }) {

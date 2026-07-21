@@ -339,6 +339,44 @@ body{font-family:var(--font-sans), system-ui, -apple-system, 'Segoe UI', Roboto,
 .rich-editor .ProseMirror pre code{background:transparent; color:inherit; padding:0}
 .cms-rich-content pre code{background:transparent; padding:0}
 
+.cms-rich-content .mermaid-diagram{
+  overflow:hidden;
+  border:1px solid rgba(78,225,193,.22);
+  border-radius:1.5rem;
+  background:
+    radial-gradient(circle at top, rgba(6,182,212,.1), transparent 45%),
+    rgba(3,12,20,.72);
+  padding:1.25rem;
+  box-shadow:0 24px 70px rgba(0,0,0,.28);
+}
+
+.cms-rich-content .mermaid-diagram__canvas{
+  display:grid;
+  min-height:180px;
+  place-items:center;
+  overflow:auto;
+  overscroll-behavior-x:contain;
+}
+
+.cms-rich-content .mermaid-diagram__canvas svg{
+  display:block;
+  width:auto;
+  max-width:100%;
+  height:auto;
+  margin:auto;
+}
+
+.cms-rich-content .mermaid-source-error{
+  border-color:rgba(248,113,113,.4);
+}
+
+.cms-rich-content .mermaid-source-error__message{
+  margin-top:.75rem;
+  color:#fca5a5;
+  font-size:.875rem;
+  line-height:1.5;
+}
+
 .rich-editor .ProseMirror img{
   max-width:100%;
   border:1px solid rgba(15,23,42,.1);
@@ -441,6 +479,12 @@ body{font-family:var(--font-sans), system-ui, -apple-system, 'Segoe UI', Roboto,
 .cms-rich-content hr{border-color:rgba(255,255,255,.1)}
 
 @media (max-width: 640px) {
+  .cms-rich-content .mermaid-diagram{
+    margin-inline:-.25rem;
+    padding:.75rem;
+    border-radius:1rem;
+  }
+
   .rich-editor .ProseMirror,
   .rich-editor--focus .ProseMirror,
   .rich-editor-source,
