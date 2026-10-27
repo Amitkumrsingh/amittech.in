@@ -24,16 +24,17 @@ test.describe('portfolio smoke flow', () => {
 
     await page.getByRole('link', { name: 'Read Insights' }).click()
     await expect(page).toHaveURL(/\/blog$/)
-    await expect(page.getByRole('heading', { name: 'Engineering Notes' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Ideas from systems that ship.' })).toBeVisible()
     await expect(page.getByRole('link', { name: /Read featured article: The Kafka Mistake/i })).toBeVisible()
 
-    await page.getByPlaceholder('Kafka, scaling, RAG...').fill('Kafka')
-    await expect(page.getByText(/notes matched/i)).toBeVisible()
+    await page.getByPlaceholder('Search stories').fill('Kafka')
+    await expect(page.getByText(/stories/i).last()).toBeVisible()
     await expect(page.getByRole('heading', { name: /Kafka/i }).first()).toBeVisible()
 
     await page.goto('/blog/kafka-mistake-duplicate-events-production', { waitUntil: 'networkidle' })
     await expect(page).toHaveURL(/\/blog\/kafka-mistake-duplicate-events-production$/)
     await expect(page.getByRole('heading', { name: /The Kafka Mistake/i })).toBeVisible()
+    await expect(page.locator('.reader-body')).toHaveCSS('max-width', 'none')
     await expect(page.locator('#production-notes').getByRole('heading', { name: 'Production Notes' })).toBeVisible()
 
     await page.goto('/#expertise', { waitUntil: 'networkidle' })
@@ -54,6 +55,15 @@ test.describe('portfolio smoke flow', () => {
     expect(typeof payload.downloads).toBe('number')
 
     expect(runtimeFailures).toEqual([])
+  })
+
+  test('editorial theme defaults to light and remembers dark mode', async ({ page }) => {
+    await page.goto('/blog')
+    await expect(page.locator('.editorial-shell')).toHaveAttribute('data-theme', 'light')
+    await page.getByRole('button', { name: 'Switch to dark mode' }).click()
+    await expect(page.locator('.editorial-shell')).toHaveAttribute('data-theme', 'dark')
+    await page.reload()
+    await expect(page.locator('.editorial-shell')).toHaveAttribute('data-theme', 'dark')
   })
 
   test('mobile navigation opens without motion toggle overlap', async ({ page }) => {

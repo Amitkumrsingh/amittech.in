@@ -78,13 +78,14 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   themeColor: '#0A0A0F',
-  colorScheme: 'dark'
+  colorScheme: 'light dark'
 }
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
+        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('amittech-reading-theme');document.documentElement.dataset.editorialTheme=t==='dark'?'dark':'light'}catch(e){document.documentElement.dataset.editorialTheme='light'}})()` }} />
         {/* Preload self-hosted fonts (files created by scripts/download-fonts.sh) */}
         <link rel="preload" href="/fonts/xMQOuFFYT72X5wkB_18qmnndmSeMmX-K.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
         <link rel="preload" href="/fonts/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfMZg.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
