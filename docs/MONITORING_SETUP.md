@@ -19,9 +19,9 @@ GlitchTip is the monitoring backend. The `@sentry/nextjs` package remains in the
 
 ## Production URLs
 
-- Health check: `https://amittech.in/api/health`
-- API monitoring dashboard: `https://amittech.in/admin/monitoring`
-- API monitoring stream: `https://amittech.in/api/admin/metrics/stream?minutes=60`
+- Health check: `https://amitkumar.tech/api/health`
+- API monitoring dashboard: `https://amitkumar.tech/admin/monitoring`
+- API monitoring stream: `https://amitkumar.tech/api/admin/metrics/stream?minutes=60`
 - GlitchTip dashboard: `https://app.glitchtip.com/`
 - GlitchTip SDK docs: `https://glitchtip.com/sdkdocs/`
 - Vercel environment variables: `https://vercel.com/dashboard`
@@ -51,9 +51,9 @@ API_METRICS_RETENTION_DAYS="30"
 3. Copy the security endpoint into `GLITCHTIP_SECURITY_REPORT_URI`.
 4. Add the variables in Vercel for Production, Preview, and Development as needed.
 5. Redeploy the production project.
-6. Open `https://amittech.in/api/health` and confirm `monitoring.status` is `ok`.
+6. Open `https://amitkumar.tech/api/health` and confirm `monitoring.status` is `ok`.
 7. Open GlitchTip and confirm events arrive after a controlled test error.
-8. Open `https://amittech.in/admin`, sign in as a super admin, then open `https://amittech.in/admin/monitoring`.
+8. Open `https://amitkumar.tech/admin`, sign in as a super admin, then open `https://amitkumar.tech/admin/monitoring`.
 9. Use **Send test log** and **Send test error** in the API Monitoring dashboard to verify GlitchTip Logs and Issues.
 
 ## Health Endpoint Response

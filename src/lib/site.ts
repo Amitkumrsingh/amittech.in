@@ -1,4 +1,4 @@
-export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://amittech.in'
+export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://amitkumar.tech'
 export const SITE_NAME = 'Amit Kumar Singh'
 export const SITE_AUTHOR_SHORT_NAME = 'Amit Kumar'
 export const SITE_TITLE = 'Amit Kumar Singh - Backend Engineer, Distributed Systems Engineer'

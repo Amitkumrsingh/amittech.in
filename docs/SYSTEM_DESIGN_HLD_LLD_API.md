@@ -3,7 +3,7 @@
 Last updated: 2026-06-07 20:34 IST  
 Repo commit used for this document: `d6c5f91`
 
-This document covers the current high-level design, low-level design, APIs, database models, query patterns, storage choices, and measured production latency for `amittech.in`.
+This document covers the current high-level design, low-level design, APIs, database models, query patterns, storage choices, and measured production latency for `amitkumar.tech`.
 
 ## Scope
 
@@ -478,7 +478,7 @@ External dependency: Cloudinary upload latency dominates this path.
 
 ## Current Production Latency Snapshot
 
-Measured from local machine over public internet to `https://amittech.in` on 2026-06-07. Each endpoint used 7 requests. Numbers include network, Cloudflare, Vercel, serverless startup/warm state, and database/external calls where applicable.
+Measured from local machine over public internet to `https://amitkumar.tech` on 2026-06-07. Each endpoint used 7 requests. Numbers include network, Cloudflare, Vercel, serverless startup/warm state, and database/external calls where applicable.
 
 | Method | Route | Status | p50 ms | p95 ms | Min ms | Max ms | Notes |
 |---|---|---:|---:|---:|---:|---:|---|
@@ -557,13 +557,13 @@ Priority order:
 ### Production Health Checks
 
 ```bash
-curl -I https://amittech.in
-curl -I https://amittech.in/blog
-curl -I https://amittech.in/favicon.ico
-curl -sS https://amittech.in/api/posts?pageSize=1
-curl -sS https://amittech.in/api/download-count
-curl -sS https://amittech.in/sitemap.xml | head
-curl -sS https://amittech.in/rss.xml | head
+curl -I https://amitkumar.tech
+curl -I https://amitkumar.tech/blog
+curl -I https://amitkumar.tech/favicon.ico
+curl -sS https://amitkumar.tech/api/posts?pageSize=1
+curl -sS https://amitkumar.tech/api/download-count
+curl -sS https://amitkumar.tech/sitemap.xml | head
+curl -sS https://amitkumar.tech/rss.xml | head
 ```
 
 ### Deployment Verification

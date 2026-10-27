@@ -5,12 +5,12 @@ Technical SEO is now wired into the app, but Google ranking is not guaranteed by
 ## One-Time Setup
 
 - Add `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` in Vercel from Google Search Console.
-- Verify `https://amittech.in` in Google Search Console.
-- Submit `https://amittech.in/sitemap.xml`.
-- Submit `https://amittech.in/rss.xml` anywhere you syndicate the engineering notes.
+- Verify `https://amitkumar.tech` in Google Search Console.
+- Submit `https://amitkumar.tech/sitemap.xml`.
+- Submit `https://amitkumar.tech/rss.xml` anywhere you syndicate the engineering notes.
 - Inspect and request indexing for:
-  - `https://amittech.in`
-  - `https://amittech.in/blog`
+  - `https://amitkumar.tech`
+  - `https://amitkumar.tech/blog`
   - Every newly published blog post.
 
 ## Monthly Organic Push
@@ -32,8 +32,8 @@ Technical SEO is now wired into the app, but Google ranking is not guaranteed by
 
 ## Checks
 
-- `https://amittech.in/favicon.ico` returns 200.
-- `https://amittech.in/sitemap.xml` includes the new post.
-- `https://amittech.in/rss.xml` includes the new post.
+- `https://amitkumar.tech/favicon.ico` returns 200.
+- `https://amitkumar.tech/sitemap.xml` includes the new post.
+- `https://amitkumar.tech/rss.xml` includes the new post.
 - Blog post has a canonical URL and OpenGraph image.
 - Search Console shows no indexing errors.
