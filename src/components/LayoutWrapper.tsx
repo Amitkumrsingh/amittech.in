@@ -11,7 +11,7 @@ import EditorialShell from './EditorialShell'
 
 export default function LayoutWrapper({ children }: { children: ReactNode }) {
   const pathname = usePathname()
-  const isEditorialRoute = pathname.startsWith('/blog') || pathname.startsWith('/admin')
+  const isEditorialRoute = pathname?.startsWith('/blog') || pathname?.startsWith('/admin')
 
   if (isEditorialRoute) return <EditorialShell>{children}</EditorialShell>
 

@@ -10,7 +10,7 @@ type ReadingTheme = 'light' | 'dark'
 export default function EditorialShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const [theme, setTheme] = useState<ReadingTheme>('light')
-  const isAdmin = pathname.startsWith('/admin')
+  const isAdmin = pathname?.startsWith('/admin') ?? false
 
   useEffect(() => {
     const stored = window.localStorage.getItem('amittech-reading-theme')
