@@ -6,6 +6,7 @@ import ExpertiseGrid from './ExpertiseGrid'
 import ProjectsSection from './ProjectsSection'
 import ContactSection from './ContactSection'
 import AboutSection from './AboutSection'
+import AISection from './AISection'
 
 export default function InteractiveArea() {
   return (
@@ -15,6 +16,7 @@ export default function InteractiveArea() {
       <ExperienceTimeline />
 
       <ProjectsSection />
+      <AISection />
       <ExpertiseGrid />
       <ContactSection />
     </>

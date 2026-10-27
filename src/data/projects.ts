@@ -4,17 +4,35 @@ export type { Project } from '../features/projects'
 
 export const PROJECTS = [
   {
-    id: 'distributed-hrms',
-    title: 'Distributed HRMS Platform',
+    id: 'cloudops-ai-copilot',
+    title: 'CloudOps AI Copilot',
+    company: 'Independent AI project',
+    period: 'Recent project',
+    role: 'AI Systems Engineer',
+    businessProblem: 'Turn cloud cost and observability data into an interactive assistant for infrastructure teams.',
+    scale: 'AWS CUR and Athena workflows with S3-backed data parsing, vector retrieval, and streamed agent responses.',
+    architecture: 'RAG and MCP orchestration across AWS Athena, S3, ChromaDB, Gemini, Claude via Bedrock, and SSE.',
+    tech: ['AWS Athena', 'AWS CUR', 'S3', 'ChromaDB', 'RAG', 'MCP', 'Gemini', 'Claude via Bedrock'],
+    impact: ['Automated cloud cost analysis and optimization workflows', 'Enabled tool-aware agentic responses with streamed output'],
+    challenges: ['Managed context across retrieval and tool calls', 'Designed a practical path from structured cloud data to human-readable recommendations'],
+    sampleCode: `# Retrieval-augmented tool workflow
+context = retriever.search(question)
+result = agent.run(question=question, context=context, tools=mcp_tools)
+stream(result)
+`
+  },
+  {
+    id: 'hrms-event-driven',
+    title: 'HRMS Event-Driven Workflow Engine',
     company: 'Delhivery',
-    period: 'Oct 2025 – Present',
-    role: 'Software Developer',
-    businessProblem: 'Unified HR, attendance, roster, leave, and learning systems for a distributed workforce across multiple regions.',
-    scale: '300K+ employees served, CDC-driven sync across MySQL, MongoDB, and Kafka.',
-    architecture: 'Event-driven microservices with Debezium CDC, Kafka, Redis, MySQL, MongoDB, and AWS.',
-    tech: ['Python', 'Kafka', 'Redis', 'MySQL', 'MongoDB', 'AWS', 'Debezium', 'Microservices'],
-    impact: ['60% reduction in onboarding turnaround time', 'Zero-downtime migrations', 'Improved observability across production systems'],
-    challenges: ['Built idempotent event replay and retry pipelines', 'Managed cross-system integration with LMS, UMS, Oracle HRMS, attendance, roster, and leave systems', 'Implemented PII encryption and VAPT remediation'],
+    period: 'Oct 2025 – Jul 2026',
+    role: 'Software Development Engineer',
+    businessProblem: 'Connect onboarding, BGV, attendance, and learning workflows across operational systems for a large employee base.',
+    scale: '150K+ employees supported through Python services, Kafka workflows, and cross-system synchronization.',
+    architecture: 'Event-driven microservices with Kafka, Redis, MySQL, MongoDB, AWS, retries, DLQs, and observability.',
+    tech: ['Python', 'Kafka', 'Redis', 'MySQL', 'MongoDB', 'AWS', 'MCP', 'Microservices'],
+    impact: ['60% reduction in onboarding time', 'Zero-downtime migrations and stronger production observability', 'MCP and agentic AI workflows for employee lifecycle lookup'],
+    challenges: ['Built idempotent retries, DLQs, event replay, and partition scaling', 'Synchronized HRMS, Newton RDS, OS1 LMS, attendance, and workforce workflows', 'Implemented security remediation and PII-safe operational practices'],
     sampleCode: `# Kafka consumer with idempotent state handling
 from kafka import KafkaConsumer
 from collections import defaultdict

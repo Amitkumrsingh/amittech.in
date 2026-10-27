@@ -9,27 +9,27 @@ import { HERO_IMPACT_METRICS, HERO_SYSTEM_NODES } from '../features/home'
 
 export default function Hero() {
   return (
-    <motion.section id="hero" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: 'easeOut' }} className="relative overflow-hidden rounded-[24px] sm:rounded-[32px] border border-white/10 bg-[#0A0A0F] p-5 shadow-[0_40px_120px_-100px_rgba(124,58,237,0.45)] sm:p-8 md:p-10 lg:p-12">
+    <motion.section id="hero" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: 'easeOut' }} className="relative overflow-hidden border-b border-white/10 bg-[#0B0F14] pb-10 sm:pb-14">
       <HeroBackground />
 
-      <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-center">
+      <div className="relative grid gap-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
         <div>
-          <p className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs uppercase tracking-[0.28em] text-slate-300 sm:px-4 sm:py-2">
-            Production backend systems • Kafka • Cloud
+          <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.24em] text-secondary">
+            Backend systems <span className="text-slate-600">/</span> Agentic AI <span className="text-slate-600">/</span> Production
           </p>
 
-          <h1 className="mt-6 max-w-4xl text-4xl font-semibold leading-tight text-white sm:mt-8 sm:text-5xl md:text-6xl">
-            I turn complex workflows into reliable distributed systems.
+          <h1 className="mt-6 max-w-4xl text-4xl font-semibold leading-[1.02] tracking-tight text-white sm:text-6xl md:text-7xl">
+            I build reliable systems and useful AI workflows.
           </h1>
 
-          <p className="mt-5 max-w-2xl text-base leading-7 text-slate-300 sm:mt-6 sm:text-lg sm:leading-8">
-            Software Engineer with 3+ years of experience building HRMS, fintech, CRM, and event-driven platforms using Python, Kafka, AWS, React, Node.js, and distributed systems.
+          <p className="mt-6 max-w-2xl text-base leading-7 text-slate-300 sm:text-lg sm:leading-8">
+            Software Development Engineer focused on backend platforms, distributed systems, and agentic AI. I work across Python, Kafka, AWS, RAG, MCP, and production reliability.
           </p>
 
           <HeroActions />
         </div>
 
-        <div className="grid gap-4">
+        <div className="grid gap-4 border-l border-white/10 pl-5 lg:mb-1">
           <SystemMap />
           <ProductionConsole />
         </div>
@@ -48,15 +48,15 @@ function HeroBackground() {
         transition={{ duration: 20, repeat: Infinity, ease: 'easeInOut' }}
         className="absolute inset-0 bg-[radial-gradient(circle_at_16%_18%,rgba(34,211,238,0.18),transparent_30%),radial-gradient(circle_at_82%_12%,rgba(124,58,237,0.2),transparent_32%),radial-gradient(circle_at_66%_86%,rgba(236,72,153,0.16),transparent_28%)]"
       />
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.035)_1px,transparent_1px)] bg-[length:34px_34px] opacity-35" />
-      <div className="absolute inset-0 bg-gradient-to-br from-[#0A0A0F]/45 via-transparent to-[#0A0A0F]/75" />
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.025)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.025)_1px,transparent_1px)] bg-[length:42px_42px] opacity-20" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#0B0F14]/40 via-transparent to-[#0B0F14]/90" />
     </div>
   )
 }
 
 function SystemMap() {
   return (
-    <div className="relative min-h-[280px] overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.045] p-5 shadow-[0_36px_100px_-80px_rgba(6,182,212,0.7)] backdrop-blur-2xl">
+    <div className="relative min-h-[260px] overflow-hidden rounded-[18px] border border-white/10 bg-white/[0.025] p-5">
       <div className="absolute inset-6 rounded-[24px] border border-white/10" />
       <div className="absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full border border-secondary/35 bg-secondary/10 shadow-[0_0_60px_-20px_rgba(6,182,212,0.9)]" />
       <div className="absolute left-1/2 top-1/2 h-px w-[72%] -translate-x-1/2 bg-gradient-to-r from-transparent via-secondary/50 to-transparent" />
@@ -93,7 +93,7 @@ function SystemMap() {
 
 function ProductionConsole() {
   return (
-    <div className="rounded-[24px] border border-white/10 bg-black/35 p-4 font-mono text-xs text-slate-300 shadow-[0_30px_90px_-70px_rgba(124,58,237,0.75)] backdrop-blur-2xl">
+    <div className="rounded-[16px] border border-white/10 bg-black/20 p-4 font-mono text-xs text-slate-300">
       <div className="mb-3 flex gap-1.5">
         <span className="h-2.5 w-2.5 rounded-full bg-accent" />
         <span className="h-2.5 w-2.5 rounded-full bg-gold" />
@@ -122,7 +122,10 @@ function ImpactPanel() {
 function HeroActions() {
   return (
     <div className="mt-7 flex flex-col gap-3 sm:mt-10 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
-      <ButtonLink href="#projects" variant="gradient">
+      <ButtonLink href="#ai" variant="secondary">
+        Explore AI work
+      </ButtonLink>
+      <ButtonLink href="#projects" variant="ghost">
         View Projects
       </ButtonLink>
       <ButtonLink href="/blog" variant="ghost">

@@ -26,6 +26,10 @@ export const SKILL_CATEGORIES = [
   {
     title: 'Architecture',
     items: ['Microservices', 'Distributed Systems', 'System Design', 'Scalable Backend Systems']
+  },
+  {
+    title: 'GenAI',
+    items: ['LLM', 'RAG', 'LangChain', 'LangGraph', 'ChromaDB', 'Vector Databases', 'AI Agents', 'MCP', 'HITL']
   }
 ] satisfies SkillCategoryShape[]
 
@@ -64,5 +68,14 @@ export const SKILL_DETAILS: Record<string, string> = {
   Microservices: 'Split monolithic logic into composable services.',
   'Distributed Systems': 'Engineered for throughput, reliability, and observability.',
   'System Design': 'Defined service boundaries, contracts, and scale plans.',
-  'Scalable Backend Systems': 'Built platforms capable of supporting hundreds of thousands of users.'
+  'Scalable Backend Systems': 'Built platforms capable of supporting hundreds of thousands of users.',
+  LLM: 'Designed practical LLM workflows over structured and retrieved context.',
+  RAG: 'Connected vector retrieval to grounded answers over operational data.',
+  LangChain: 'Used orchestration patterns for retrieval and tool-aware AI workflows.',
+  LangGraph: 'Modeled multi-step agentic workflows with explicit state and tool calls.',
+  ChromaDB: 'Used vector storage for semantic search in AI prototypes.',
+  'Vector Databases': 'Worked with embeddings and similarity search for context retrieval.',
+  'AI Agents': 'Built workflows that combine model reasoning with application tools.',
+  MCP: 'Built structured tool access for HRMS employee lifecycle and operational lookups.',
+  HITL: 'Kept human review in the loop where workflow accuracy and operational context matter.'
 }

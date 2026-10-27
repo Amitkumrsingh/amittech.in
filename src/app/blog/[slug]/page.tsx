@@ -74,7 +74,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
 
       <article className="mx-auto max-w-6xl">
         <header className="border-b border-white/10 pb-8">
-          <Link href="/blog" className="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:border-secondary/60 hover:bg-white/10">
+          <Link href="/blog" className="inline-flex rounded-full border border-white/10 bg-white/[0.035] px-4 py-2 text-sm font-semibold text-white transition hover:border-secondary/60 hover:bg-white/10">
             Back to Engineering Notes
           </Link>
 
@@ -115,11 +115,11 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
           </div>
 
           <aside className="lg:sticky lg:top-28">
-            <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-4 text-sm leading-6 text-slate-400 backdrop-blur-2xl">
+            <div className="rounded-[16px] border border-white/10 bg-[#111820] p-4 text-sm leading-6 text-slate-400">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Filed under</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {post.tags.map(tag => (
-                  <span key={tag} className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-slate-300">
+                  <span key={tag} className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1 text-xs text-slate-300">
                     {tag}
                   </span>
                 ))}

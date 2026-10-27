@@ -1,8 +1,8 @@
 export const HERO_IMPACT_METRICS = [
-  { value: '300K+', label: 'employees served' },
+  { value: '150K+', label: 'employees supported' },
   { value: '60%', label: 'faster onboarding' },
   { value: '35%', label: 'DB performance gain' },
-  { value: '80%', label: 'less deployment effort' }
+  { value: '80%', label: 'faster deployments' }
 ] as const
 
 export const HERO_SYSTEM_NODES = [

@@ -508,7 +508,7 @@ export default function AdminDashboard() {
       initial="hidden"
       animate="show"
       variants={motionTheme.variants.containerStagger(0.04)}
-      className="cms-shell relative overflow-hidden rounded-[28px] border border-white/10 shadow-[0_30px_110px_-72px_rgba(34,211,238,0.68)] backdrop-blur-2xl"
+      className="cms-shell relative overflow-hidden rounded-[20px] border border-white/10"
     >
       <a href="#cms-content" className="sr-only focus:not-sr-only focus:absolute focus:left-5 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-secondary focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-slate-950">
         Skip to CMS content
@@ -687,7 +687,7 @@ export default function AdminDashboard() {
             {error ? <Alert tone="error">{error}</Alert> : null}
 
             <Panel className="overflow-hidden p-0">
-              <div className="flex flex-col gap-4 border-b border-white/10 bg-white/[0.035] p-4 sm:p-5 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex flex-col gap-4 border-b border-white/10 bg-[#111820] p-4 sm:p-5 xl:flex-row xl:items-center xl:justify-between">
                 <div className="min-w-0">
                   <p className="cms-kicker text-[10px] font-semibold uppercase">
                     {form.id ? 'Edit article' : 'New article'}
@@ -917,7 +917,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
 
 function Panel({ children, className, ...props }: { children: React.ReactNode; className?: string } & React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <motion.div {...props} variants={motionTheme.variants.fadeUp()} className={cn('cms-panel rounded-2xl border p-4 backdrop-blur-xl sm:p-5', className)}>
+    <motion.div {...props} variants={motionTheme.variants.fadeUp()} className={cn('cms-panel rounded-2xl border p-4 sm:p-5', className)}>
       {children}
     </motion.div>
   )
@@ -1003,7 +1003,7 @@ function PostListItem({ post, active, onSelect }: { post: CmsPost; active: boole
       onClick={onSelect}
       className={cn(
         'w-full rounded-xl border p-3.5 text-left transition duration-200',
-        active ? 'border-secondary/60 bg-secondary/10 shadow-[inset_3px_0_0_rgba(103,232,249,.9),0_12px_30px_-25px_rgba(34,211,238,.8)]' : 'border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/[0.055]'
+        active ? 'border-secondary/60 bg-secondary/10 shadow-[inset_3px_0_0_rgba(103,232,249,.9)]' : 'border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/[0.055]'
       )}
     >
       <div className="flex items-start justify-between gap-3">

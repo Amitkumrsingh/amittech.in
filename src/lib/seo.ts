@@ -18,7 +18,7 @@ export function getPersonSchema() {
     name: SITE_NAME,
     url: SITE_URL,
     email: `mailto:${CONTACT_EMAIL}`,
-    jobTitle: 'Backend Engineer',
+    jobTitle: 'Backend, Distributed Systems & AI Engineer',
     description: SITE_DESCRIPTION,
     knowsAbout: SEO_KEYWORDS.filter(keyword => keyword !== SITE_NAME),
     sameAs: [GITHUB_PROFILE_URL, LINKEDIN_PROFILE_URL]

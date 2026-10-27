@@ -64,7 +64,7 @@ export default function BlogSection({ posts, categories: providedCategories }: B
             <div className="sm:col-span-3 lg:col-span-1">
               <Link
                 href="/admin"
-                className="inline-flex h-12 items-center justify-center rounded-full border border-secondary/40 bg-secondary px-5 text-sm font-semibold text-black shadow-[0_18px_70px_-35px_rgba(6,182,212,0.9)] transition hover:-translate-y-0.5 hover:bg-auroraTeal"
+                className="inline-flex h-12 items-center justify-center rounded-full border border-secondary/40 bg-secondary px-5 text-sm font-semibold text-black transition hover:-translate-y-0.5 hover:bg-auroraTeal"
               >
                 Write article
               </Link>
@@ -84,7 +84,7 @@ export default function BlogSection({ posts, categories: providedCategories }: B
 
       <div id="latest-notes" className="mt-10 grid gap-8 lg:grid-cols-[260px_minmax(0,1fr)]">
         <aside className="lg:sticky lg:top-28 lg:self-start">
-          <div className="rounded-[28px] border border-white/10 bg-[#10131B]/80 p-4 shadow-[0_30px_100px_-80px_rgba(6,182,212,0.55)] backdrop-blur-2xl">
+          <div className="rounded-[20px] border border-white/10 bg-[#111820] p-4">
             <label className="block">
               <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Search notes</span>
               <input
@@ -102,7 +102,7 @@ export default function BlogSection({ posts, categories: providedCategories }: B
               onChange={setActiveCategory}
             />
 
-            <div className="mt-5 rounded-[22px] border border-secondary/20 bg-secondary/10 p-4">
+              <div className="mt-5 rounded-[16px] border border-secondary/20 bg-secondary/10 p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-secondary">Writer tools</p>
               <p className="mt-2 text-sm leading-6 text-slate-300">Create, edit, publish, and copy post URLs from the CMS dashboard.</p>
               <Link

@@ -13,7 +13,11 @@ test.describe('portfolio smoke flow', () => {
     })
 
     await page.goto('/', { waitUntil: 'networkidle' })
-    await expect(page.getByRole('heading', { name: /reliable distributed systems/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /reliable systems and useful AI workflows/i })).toBeVisible()
+
+    await page.getByRole('link', { name: 'AI' }).click()
+    await expect(page.locator('#ai')).toBeVisible()
+    await expect(page.getByRole('heading', { name: /CloudOps AI Copilot/i })).toBeVisible()
 
     await page.getByRole('link', { name: 'View Projects' }).click()
     await expect(page.locator('#projects')).toBeVisible()
@@ -40,7 +44,7 @@ test.describe('portfolio smoke flow', () => {
     await expect(page.getByRole('link', { name: 'Email me' })).toBeVisible()
 
     await page.goto('/admin', { waitUntil: 'networkidle' })
-    await expect(page.getByRole('heading', { name: 'CMS Command Center' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Editorial workspace' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Sign in to manage posts.' })).toBeVisible()
 
     const downloadCount = await request.get('/api/download-count')

@@ -1,8 +1,8 @@
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://amitkumar.tech'
 export const SITE_NAME = 'Amit Kumar Singh'
 export const SITE_AUTHOR_SHORT_NAME = 'Amit Kumar'
-export const SITE_TITLE = 'Amit Kumar Singh - Backend Engineer, Distributed Systems Engineer'
-export const SITE_DESCRIPTION = 'Amit Kumar Singh is a Backend Engineer focused on distributed systems, Kafka, Python, AWS, system design, cloud platforms, AI engineering, and production reliability.'
+export const SITE_TITLE = 'Amit Kumar Singh - Backend, Distributed Systems & AI Engineer'
+export const SITE_DESCRIPTION = 'Amit Kumar Singh builds backend platforms, distributed systems, and agentic AI workflows with Python, Kafka, AWS, RAG, MCP, and production engineering.'
 export const CONTACT_EMAIL = 'aksingh1109@gmail.com'
 export const RESUME_FILE = 'Amit_Kumar_Singh_Resume.pdf'
 export const GITHUB_PROFILE_URL = 'https://github.com/Amitkumrsingh'
@@ -18,6 +18,11 @@ export const SEO_KEYWORDS = [
   'AWS',
   'Microservices',
   'AI Engineering',
+  'Agentic AI',
+  'RAG',
+  'MCP',
+  'LangGraph',
+  'CloudOps AI',
   'Production Engineering',
   'Fintech Engineer',
   'HRMS Platform Engineer'
@@ -28,6 +33,7 @@ export const NAV_LINKS = [
   { label: 'About', href: '/#about', section: 'about' },
   { label: 'Experience', href: '/#experience', section: 'experience' },
   { label: 'Projects', href: '/#projects', section: 'projects' },
+  { label: 'AI', href: '/#ai', section: 'ai' },
   { label: 'Skills', href: '/#expertise', section: 'expertise' },
   { label: 'Blog', href: '/blog', section: 'blog' },
   { label: 'Contact', href: '/#contact', section: 'contact' }
