@@ -48,7 +48,7 @@ export default function MermaidArticleContent({ html }: MermaidArticleContentPro
       mermaid.initialize({
         startOnLoad: false,
         securityLevel: 'strict',
-        theme,
+        theme: theme === 'dark' ? 'dark' : 'default',
         fontFamily: 'var(--font-sans), Inter, ui-sans-serif, system-ui, sans-serif',
         suppressErrorRendering: true,
         themeVariables: {
