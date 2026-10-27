@@ -60,7 +60,7 @@ export const BLOG_POSTS = [
   },
   {
     slug: 'scaled-hrms-platform-300k-employees',
-    title: 'Lessons from Scaling an HRMS Platform to 300K+ Employees',
+    title: 'Lessons from Scaling an HRMS Platform to 150K+ Employees',
     category: 'Production Engineering',
     publishDate: '2026-05-10',
     readingMinutes: 10,
@@ -68,7 +68,7 @@ export const BLOG_POSTS = [
     hook: 'Scale was not one big rewrite. It was a long series of removing the next bottleneck.',
     tags: ['HRMS', 'CDC', 'Kafka', 'Scale'],
     cover: {
-      kicker: '300K+ employees',
+      kicker: '150K+ employees',
       metric: '60% faster onboarding',
       gradient: 'from-emerald-400/25 via-cyan-400/20 to-violet-500/25',
       accent: 'bg-emerald-300',
@@ -84,7 +84,7 @@ export const BLOG_POSTS = [
         id: 'story',
         title: 'The Hard Part Was Not the Employee Count',
         body: [
-          'Numbers make scaling sound clean. 300K+ employees sounds like a traffic problem, but the harder problem was workflow trust. HRMS systems sit close to payroll, onboarding, compliance, and support. A small inconsistency can become a real operational mess.',
+          'Numbers make scaling sound clean. 150K+ employees sounds like a traffic problem, but the harder problem was workflow trust. HRMS systems sit close to payroll, onboarding, compliance, and support. A small inconsistency can become a real operational mess.',
           'That changed how I looked at backend work. Fast APIs were useful, but the system also needed a reliable explanation for where each workflow was, why it moved, and what happened when a dependency slowed down.'
         ]
       },
