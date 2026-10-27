@@ -11,7 +11,6 @@ import {
   FileText,
   Folder,
   ImageUp,
-  LayoutDashboard,
   LogOut,
   Plus,
   RotateCcw,
@@ -509,29 +508,39 @@ export default function AdminDashboard() {
       initial="hidden"
       animate="show"
       variants={motionTheme.variants.containerStagger(0.04)}
-      className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#0d1118]/95 shadow-[0_24px_90px_-70px_rgba(6,182,212,0.7)] backdrop-blur-2xl"
+      className="cms-shell relative overflow-hidden rounded-[28px] border border-white/10 shadow-[0_30px_110px_-72px_rgba(34,211,238,0.68)] backdrop-blur-2xl"
     >
-      <div className="relative flex flex-col gap-4 border-b border-white/10 bg-white/[0.035] px-4 py-4 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
+      <a href="#cms-content" className="sr-only focus:not-sr-only focus:absolute focus:left-5 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-secondary focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-slate-950">
+        Skip to CMS content
+      </a>
+      <div className="relative flex flex-col gap-5 border-b border-white/10 bg-white/[0.035] px-5 py-5 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-secondary/20 bg-secondary/12 text-secondary">
-            <LayoutDashboard size={22} />
+          <div className="cms-brand-mark grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-secondary/20 text-secondary">
+            <span className="font-display text-sm font-semibold tracking-[0.16em]">AKS</span>
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-secondary">Private CMS</p>
-            <h1 className="mt-1 truncate font-display text-2xl font-semibold text-white sm:text-3xl">CMS Command Center</h1>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <p className="cms-kicker text-[10px] font-semibold uppercase">Amitkumar.tech / Private CMS</p>
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_12px_rgba(110,231,183,.9)]" />
+                Live workspace
+              </span>
+            </div>
+            <h1 className="mt-1 truncate font-display text-2xl font-semibold tracking-tight text-white sm:text-3xl">Editorial workspace</h1>
+            <p className="mt-1 hidden text-xs text-slate-400 sm:block">Turn production lessons into durable, readable notes.</p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <nav aria-label="CMS actions" className="flex flex-wrap items-center gap-2">
           {isSuperAdmin ? (
-            <Link href="/admin/monitoring" className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-secondary/30 bg-secondary/10 px-3 py-2 text-sm font-semibold text-secondary transition hover:border-secondary hover:bg-secondary/15">
+            <Link href="/admin/monitoring" className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-secondary/25 bg-secondary/10 px-3 py-2 text-sm font-semibold text-secondary transition hover:border-secondary hover:bg-secondary/15">
               <Activity size={16} />
               API Monitoring
             </Link>
           ) : null}
-          <Link href="/blog" className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-slate-200 transition hover:border-secondary/50 hover:text-secondary">
+          <Link href="/blog" className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-slate-200 transition hover:border-secondary/50 hover:bg-secondary/10 hover:text-secondary">
             <ExternalLink size={16} />
-            View blog
+            Open public site
           </Link>
           {user ? (
             <MicroButton
@@ -543,44 +552,44 @@ export default function AdminDashboard() {
               Sign out
             </MicroButton>
           ) : null}
-        </div>
+        </nav>
       </div>
 
       {authLoading ? (
         <DashboardShell>
-          <Panel className="lg:col-span-5">
+          <Panel className="lg:col-span-5" aria-busy="true">
             <p className="text-sm text-slate-300">Checking session...</p>
           </Panel>
         </DashboardShell>
       ) : !user ? (
         <DashboardShell>
-          <Panel className="lg:col-span-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Authentication</p>
-            <h2 className="mt-4 font-display text-3xl font-semibold text-white">Sign in to manage posts.</h2>
+          <Panel className="lg:col-span-5 xl:col-span-5" id="cms-content">
+            <p className="cms-kicker text-xs font-semibold uppercase">Authentication</p>
+            <h2 className="mt-4 max-w-lg font-display text-3xl font-semibold tracking-tight text-white sm:text-4xl">A calmer place to publish what you learned.</h2>
             <p className="mt-4 max-w-xl text-sm leading-7 text-slate-300">
-              Use Google to write and manage your posts. Super admins can manage all content.
+              Sign in with Google to write, edit, and publish engineering notes. Super admins can also manage every post and watch API health.
             </p>
-            <div className="mt-6 min-h-11">
+            <div className="mt-7 min-h-11 rounded-2xl border border-white/10 bg-black/20 p-3">
               {googleClientId ? <div ref={googleButtonRef} /> : <p className="text-sm text-accent">Google OAuth is not configured.</p>}
             </div>
             {googleClientId && !googleReady ? <p className="mt-3 text-xs text-slate-500">Loading Google sign-in...</p> : null}
             {authError ? <Alert tone="error">{authError}</Alert> : null}
           </Panel>
-          <Panel className="lg:col-span-7">
+          <Panel className="lg:col-span-7 xl:col-span-7" id="cms-content-preview">
             <EditorialEmptyState />
           </Panel>
         </DashboardShell>
       ) : (
         <DashboardShell>
-          <div className="space-y-3 lg:col-span-4 xl:sticky xl:top-24 xl:self-start">
+          <aside aria-label="Content library" className="space-y-4 lg:col-span-4 xl:sticky xl:top-24 xl:col-span-3 xl:self-start">
             <Panel className="p-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/8 text-slate-200">
+                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/8 text-slate-200">
                     <UserCircle size={21} />
                   </div>
                   <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Signed in</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">Signed in as</p>
                     <h2 className="mt-1 truncate text-base font-semibold text-white">{user.name}</h2>
                     <p className="truncate text-xs text-slate-400">{user.email}</p>
                   </div>
@@ -612,7 +621,7 @@ export default function AdminDashboard() {
                 <MicroButton
                   type="button"
                   onClick={() => setForm(emptyForm)}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-secondary px-4 text-sm font-semibold text-black transition hover:bg-auroraTeal"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-secondary/60 bg-secondary px-4 text-sm font-semibold text-black shadow-[0_14px_30px_-18px_rgba(34,211,238,.9)] transition hover:bg-auroraTeal"
                 >
                   <Plus size={16} />
                   New post
@@ -671,23 +680,24 @@ export default function AdminDashboard() {
                 onPick={value => updateForm('tags', form.tags ? `${form.tags}, ${value}` : value)}
               />
             </Panel>
-          </div>
+          </aside>
 
-          <div className="min-w-0 space-y-4 lg:col-span-8">
+          <main id="cms-content" className="min-w-0 space-y-5 lg:col-span-8 xl:col-span-9">
             {message ? <Alert tone="success">{message}</Alert> : null}
             {error ? <Alert tone="error">{error}</Alert> : null}
 
             <Panel className="overflow-hidden p-0">
-              <div className="flex flex-col gap-4 border-b border-white/10 bg-white/[0.035] p-4 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex flex-col gap-4 border-b border-white/10 bg-white/[0.035] p-4 sm:p-5 xl:flex-row xl:items-center xl:justify-between">
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+                  <p className="cms-kicker text-[10px] font-semibold uppercase">
                     {form.id ? 'Edit article' : 'New article'}
                   </p>
                   <h2 className="mt-2 truncate font-display text-2xl font-semibold text-white">
                     {form.title || 'Untitled production note'}
                   </h2>
+                  <p className="mt-1 text-xs text-slate-500">Draft locally, shape the story, then publish when it reads right.</p>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 xl:justify-end">
                   <ActionButton icon={Save} onClick={() => savePost('DRAFT')} disabled={saving}>
                     Save draft
                   </ActionButton>
@@ -713,7 +723,7 @@ export default function AdminDashboard() {
               </div>
 
               <div className="p-4 sm:p-5">
-              <div className="rounded-xl border border-white/10 bg-black/18 p-4">
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4 sm:p-5">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <h3 className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">
                     <FileText size={15} />
@@ -798,7 +808,7 @@ export default function AdminDashboard() {
                 />
               </FieldGroup>
 
-              <div className="mt-4 rounded-xl border border-white/10 bg-black/18 p-4">
+              <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4 sm:p-5">
                 <h3 className="mb-4 inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">
                   <Sparkles size={15} />
                   SEO and distribution
@@ -846,11 +856,11 @@ export default function AdminDashboard() {
               </div>
             </Panel>
 
-            <Panel className="p-4">
+            <Panel className="p-4 sm:p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.2em] text-slate-400">
                   <Eye size={15} />
-                  Preview
+                  Reader preview
                 </h2>
                 <div className="flex items-center gap-2">
                   <StatusPill status={form.status} />
@@ -894,7 +904,7 @@ export default function AdminDashboard() {
                 </div>
               </article>
             </Panel>
-          </div>
+          </main>
         </DashboardShell>
       )}
     </motion.section>
@@ -902,22 +912,27 @@ export default function AdminDashboard() {
 }
 
 function DashboardShell({ children }: { children: React.ReactNode }) {
-  return <div className="relative grid gap-4 p-4 lg:grid-cols-12 lg:p-5">{children}</div>
+  return <div className="relative grid gap-5 p-4 sm:p-5 lg:grid-cols-12 lg:gap-6 lg:p-6">{children}</div>
 }
 
-function Panel({ children, className }: { children: React.ReactNode; className?: string }) {
+function Panel({ children, className, ...props }: { children: React.ReactNode; className?: string } & React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <motion.div variants={motionTheme.variants.fadeUp()} className={cn('rounded-xl border border-white/10 bg-white/[0.045] p-4 shadow-[0_20px_70px_-60px_rgba(6,182,212,0.55)] backdrop-blur-xl sm:p-5', className)}>
+    <motion.div {...props} variants={motionTheme.variants.fadeUp()} className={cn('cms-panel rounded-2xl border p-4 backdrop-blur-xl sm:p-5', className)}>
       {children}
     </motion.div>
   )
 }
 
 function Metric({ label, value }: { label: string; value: number }) {
+  const Icon = label === 'Posts' ? FileText : label === 'Published' ? Send : label === 'Drafts' ? RotateCcw : Eye
+
   return (
-    <Panel className="p-3 sm:p-4">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
-      <p className="mt-1 font-display text-2xl font-semibold text-white">{value.toLocaleString()}</p>
+    <Panel className="p-3.5 sm:p-4">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
+        <Icon size={15} className="text-secondary/70" />
+      </div>
+      <p className="mt-2 font-display text-2xl font-semibold text-white">{value.toLocaleString()}</p>
     </Panel>
   )
 }
@@ -925,7 +940,7 @@ function Metric({ label, value }: { label: string; value: number }) {
 function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
     <label className={cn('block', className)}>
-      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</span>
+      <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</span>
       {children}
     </label>
   )
@@ -934,7 +949,7 @@ function Field({ label, children, className }: { label: string; children: React.
 function FieldGroup({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
     <div className={cn('block', className)}>
-      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
       {children}
     </div>
   )
@@ -959,12 +974,12 @@ function ActionButton({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        'inline-flex min-h-10 items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50',
+        'inline-flex min-h-10 items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-semibold transition duration-200 focus-visible:ring-2 focus-visible:ring-secondary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-50',
         variant === 'primary'
-          ? 'border-secondary bg-secondary text-black hover:bg-auroraTeal'
+          ? 'border-secondary bg-secondary text-black shadow-[0_14px_30px_-22px_rgba(34,211,238,.95)] hover:bg-auroraTeal'
           : variant === 'danger'
-            ? 'border-accent/40 bg-accent/10 text-accent hover:bg-accent/20'
-            : 'border-white/10 bg-white/5 text-slate-200 hover:border-secondary/40 hover:text-secondary'
+            ? 'border-accent/40 bg-accent/10 text-accent hover:border-accent/60 hover:bg-accent/20'
+            : 'border-white/10 bg-white/5 text-slate-200 hover:border-secondary/40 hover:bg-secondary/10 hover:text-secondary'
       )}
     >
       {Icon ? <Icon size={16} /> : null}
@@ -975,7 +990,7 @@ function ActionButton({
 
 function Alert({ children, tone }: { children: React.ReactNode; tone: 'success' | 'error' }) {
   return (
-    <div className={cn('rounded-xl border px-4 py-3 text-sm', tone === 'success' ? 'border-secondary/30 bg-secondary/10 text-secondary' : 'border-accent/30 bg-accent/10 text-accent')}>
+    <div role={tone === 'error' ? 'alert' : 'status'} aria-live={tone === 'error' ? 'assertive' : 'polite'} className={cn('rounded-xl border px-4 py-3 text-sm shadow-[0_12px_35px_-28px_currentColor]', tone === 'success' ? 'border-secondary/30 bg-secondary/10 text-secondary' : 'border-accent/30 bg-accent/10 text-accent')}>
       {children}
     </div>
   )
@@ -987,8 +1002,8 @@ function PostListItem({ post, active, onSelect }: { post: CmsPost; active: boole
       type="button"
       onClick={onSelect}
       className={cn(
-        'w-full rounded-xl border p-3 text-left transition',
-        active ? 'border-secondary bg-secondary/10 shadow-[inset_3px_0_0_rgba(78,225,193,.9)]' : 'border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/[0.055]'
+        'w-full rounded-xl border p-3.5 text-left transition duration-200',
+        active ? 'border-secondary/60 bg-secondary/10 shadow-[inset_3px_0_0_rgba(103,232,249,.9),0_12px_30px_-25px_rgba(34,211,238,.8)]' : 'border-white/10 bg-black/20 hover:border-white/20 hover:bg-white/[0.055]'
       )}
     >
       <div className="flex items-start justify-between gap-3">
@@ -1015,7 +1030,8 @@ function StatusPill({ status }: { status: PostStatus }) {
   }
 
   return (
-    <span className={cn('shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]', styles[status])}>
+    <span className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]', styles[status])}>
+      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-80" />
       {status}
     </span>
   )
@@ -1059,5 +1075,5 @@ function EditorialEmptyState() {
   )
 }
 
-const inputClassName = 'min-h-11 w-full rounded-xl border border-white/10 bg-black/25 px-4 text-sm text-white placeholder:text-slate-500 focus:border-secondary/50'
-const textareaClassName = 'w-full rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-sm leading-7 text-white placeholder:text-slate-500 focus:border-secondary/50'
+const inputClassName = 'cms-input min-h-11 w-full rounded-xl border px-4 text-sm text-white placeholder:text-slate-500 focus:outline-none'
+const textareaClassName = 'cms-input w-full rounded-xl border px-4 py-3 text-sm leading-7 text-white placeholder:text-slate-500 focus:outline-none'

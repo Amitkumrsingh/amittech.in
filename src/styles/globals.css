@@ -15,6 +15,55 @@ html{scroll-behavior:smooth; scroll-padding-top: 96px;}
 
 body{font-family:var(--font-sans), system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial}
 
+/* CMS workbench design system: quiet surfaces, clear hierarchy, and a subtle
+   editorial grid that keeps the private dashboard connected to the public brand. */
+.cms-shell{
+  isolation:isolate;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(34,211,238,.12), transparent 27rem),
+    radial-gradient(circle at 92% 12%, rgba(124,58,237,.11), transparent 25rem),
+    linear-gradient(145deg, rgba(11,16,24,.98), rgba(7,10,16,.98));
+}
+
+.cms-shell::before{
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  background-image:
+    linear-gradient(rgba(148,163,184,.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148,163,184,.035) 1px, transparent 1px);
+  background-size:32px 32px;
+  content:'';
+  mask-image:linear-gradient(to bottom, black, transparent 82%);
+  pointer-events:none;
+}
+
+.cms-panel{
+  border-color:rgba(148,163,184,.14);
+  background:linear-gradient(145deg, rgba(20,28,40,.76), rgba(11,16,25,.82));
+  box-shadow:0 24px 70px -58px rgba(34,211,238,.48), inset 0 1px 0 rgba(255,255,255,.035);
+}
+
+.cms-brand-mark{
+  background:linear-gradient(145deg, rgba(34,211,238,.2), rgba(124,58,237,.24));
+  box-shadow:0 0 0 1px rgba(103,232,249,.16), 0 14px 34px -20px rgba(34,211,238,.7);
+}
+
+.cms-input{
+  border-color:rgba(148,163,184,.16);
+  background:rgba(2,6,23,.34);
+  transition:border-color .18s ease, box-shadow .18s ease, background-color .18s ease;
+}
+
+.cms-input:hover{border-color:rgba(148,163,184,.28); background:rgba(2,6,23,.44)}
+.cms-input:focus{border-color:rgba(103,232,249,.72); background:rgba(2,6,23,.56); box-shadow:0 0 0 3px rgba(34,211,238,.12)}
+
+.cms-kicker{color:#67e8f9; letter-spacing:.22em}
+
+@media (prefers-reduced-motion: reduce){
+  .cms-input{transition:none}
+}
+
 .magnetic-btn{
   transform-origin:center;
   transition:transform .22s cubic-bezier(.2,.9,.3,1), box-shadow .18s, filter .18s;
