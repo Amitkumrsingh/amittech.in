@@ -1166,7 +1166,7 @@ function EditorToolbar({
 
   function insertMermaidDiagram() {
     editor.chain().focus().insertContent({
-      type: 'codeBlock',
+      type: 'mermaidBlock',
       content: [{ type: 'text', text: mermaidTemplate }]
     }).run()
     onCloseInsertMenu()
@@ -1183,7 +1183,6 @@ function EditorToolbar({
           <InsertButton icon={Minus} onClick={() => { editor.chain().focus().setHorizontalRule().run(); onCloseInsertMenu() }}>Divider</InsertButton>
           <InsertButton icon={Highlighter} onClick={insertCallout}>Callout box</InsertButton>
           <InsertButton icon={ListOrdered} onClick={insertToc}>Table of contents</InsertButton>
-          <InsertButton icon={Columns3} onClick={() => { onOpenDiagram(); onCloseInsertMenu() }}>System design diagram</InsertButton>
         </div>
       ) : null}
 
