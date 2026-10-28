@@ -61,7 +61,7 @@ import {
 } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { cn } from '../lib/classes'
-import { sanitizeMermaidSource } from '../lib/mermaid'
+import { mermaidSourceToHtml, sanitizeMermaidSource } from '../lib/mermaid'
 import { renderMermaidSource } from '../lib/mermaid-client'
 import { parseSseJsonFrame, splitSseFrames } from '../lib/sse'
 import MicroButton from './MicroButton'
@@ -1845,10 +1845,6 @@ function MermaidBlockView({ node }: ReactNodeViewProps) {
       {!codeMode ? <LiveMermaidPreview source={source} onValidChange={() => undefined} /> : null}
     </NodeViewWrapper>
   )
-}
-
-function mermaidSourceToHtml(source: string) {
-  return `<pre><code class="language-mermaid">${escapeHtml(sanitizeMermaidSource(source))}</code></pre>`
 }
 
 function markdownToEditorHtml(markdown: string) {

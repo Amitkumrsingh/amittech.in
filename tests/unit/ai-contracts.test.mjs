@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { extractMermaidSource, sanitizeMermaidSource } from '../../src/lib/mermaid.ts'
+import { extractMermaidSource, mermaidSourceToHtml, sanitizeMermaidSource } from '../../src/lib/mermaid.ts'
 import { parseSseFrame, parseSseJsonFrame, splitSseFrames } from '../../src/lib/sse.ts'
 
 test('SSE frames survive arbitrary boundaries and Unicode payloads', () => {
@@ -46,5 +46,11 @@ test('Mermaid source extraction removes trailing prose and unsafe directives', (
   const source = extractMermaidSource('```mermaid\nsequenceDiagram\nparticipant Web UI\nAuthor->>Web UI: Submit Draft\n```\nThis explanation must not be cached.')
   assert.equal(source, 'sequenceDiagram\nparticipant Web UI\nAuthor->>Web UI: Submit Draft')
   assert.equal(sanitizeMermaidSource('graph TD\nA-->B\nclick A "javascript:alert(1)"'), 'graph TD\nA-->B')
+})
+
+test('accepted Mermaid source persists as escaped editable code, not SVG', () => {
+  const html = mermaidSourceToHtml('flowchart TD\nA[<Client>] --> B[API]')
+  assert.equal(html, '<pre><code class="language-mermaid">flowchart TD\nA[&lt;Client&gt;] --&gt; B[API]</code></pre>')
+  assert.doesNotMatch(html, /<svg|dangerouslySetInnerHTML/i)
 })
 

@@ -15,6 +15,17 @@ export function sanitizeMermaidSource(value: string) {
     .trim()
 }
 
+export function mermaidSourceToHtml(source: string) {
+  const clean = sanitizeMermaidSource(source)
+  const escaped = clean
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+
+  return `<pre><code class="language-mermaid">${escaped}</code></pre>`
+}
+
 const mermaidHeader = /^(?:flowchart|graph|sequenceDiagram)\b/i
 const flowStatement = /^(?:subgraph\b|end\b|direction\b|classDef\b|class\b|style\b|linkStyle\b|[A-Za-z][\w-]*\s*(?:\[[^\n]*\]|\{[^\n]*\}|\(\([^\n]*\)\)|\([^\n]*\)))/i
 const flowEdge = /(?:-->|---|-.->|==>|--\|[^|]+\|-->)/
