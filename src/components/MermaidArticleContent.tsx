@@ -63,7 +63,7 @@ export default function MermaidArticleContent({ html, className }: MermaidArticl
       ))
       const processedHosts = new Set<HTMLElement>()
 
-      for (const source of sources) {
+      for (const [sourceIndex, source] of sources.entries()) {
         if (cancelled) return
 
         const host = (source.matches('code') ? source.closest('pre') : source) as HTMLElement | null
@@ -75,9 +75,10 @@ export default function MermaidArticleContent({ html, className }: MermaidArticl
         if (!code || !isMermaidSource(source, code)) continue
 
         try {
-          const diagramId = `mermaid-blog-${crypto.randomUUID()}`
-          await mermaid.parse(code, { suppressErrors: false })
-          if (cancelled) return
+          // Keep rendering isolated per block. Mermaid's parser keeps some
+          // internal state, so a malformed block must not prevent a later
+          // valid diagram in the same article from rendering.
+          const diagramId = `mermaid-blog-${Date.now()}-${sourceIndex}`
           const { svg, bindFunctions } = await mermaid.render(diagramId, code)
           if (cancelled) return
 
