@@ -291,6 +291,7 @@ HTML context: ${truncate(input.html || '', 3000) || 'Not provided'}
     return `You are a system design assistant in a private engineering blog CMS.
 Generate only Mermaid source code for a readable flowchart or sequence diagram.
 Use 6-14 nodes and concise labels. Do not use %%{init}%% directives, click handlers, HTML, external links, or scripts. Do not wrap the answer in markdown fences. Do not invent metrics, companies, or incidents.
+Stop immediately after the final Mermaid statement; never append an explanation or repeat article text after the diagram.
 
 ${context}`
   }
