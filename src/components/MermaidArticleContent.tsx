@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useRef } from 'react'
-import { MERMAID_SAFE_CONFIG, sanitizeMermaidSource } from '../lib/mermaid'
+import { sanitizeMermaidSource } from '../lib/mermaid'
+import { renderMermaidSource } from '../lib/mermaid-client'
 
 type MermaidArticleContentProps = {
   html: string
@@ -35,28 +36,7 @@ export default function MermaidArticleContent({ html, className }: MermaidArticl
     let cancelled = false
 
     async function renderMermaidDiagrams(contentRoot: HTMLDivElement) {
-      const { default: mermaid } = await import('mermaid')
       if (cancelled) return
-
-      mermaid.initialize({
-        ...MERMAID_SAFE_CONFIG,
-        theme: 'dark',
-        fontFamily: 'var(--font-sans), Inter, ui-sans-serif, system-ui, sans-serif',
-        suppressErrorRendering: true,
-        themeVariables: {
-          background: '#071827',
-          primaryColor: '#0f2a3a',
-          primaryTextColor: '#f8fafc',
-          primaryBorderColor: '#4ee1c1',
-          lineColor: '#67e8f9',
-          secondaryColor: '#11283a',
-          tertiaryColor: '#0b1f2d',
-          clusterBkg: '#0b1f2d',
-          clusterBorder: '#2a5263',
-          edgeLabelBackground: '#071827',
-          fontFamily: 'var(--font-sans), Inter, ui-sans-serif, system-ui, sans-serif'
-        }
-      })
 
       const sources = Array.from(contentRoot.querySelectorAll<HTMLElement>(
         'pre > code, pre.mermaid, pre[data-mermaid], div.mermaid, div[data-mermaid]'
@@ -79,7 +59,23 @@ export default function MermaidArticleContent({ html, className }: MermaidArticl
           // internal state, so a malformed block must not prevent a later
           // valid diagram in the same article from rendering.
           const diagramId = `mermaid-blog-${Date.now()}-${sourceIndex}`
-          const { svg, bindFunctions } = await mermaid.render(diagramId, code)
+          const { svg, bindFunctions } = await renderMermaidSource(code, diagramId, {
+            theme: 'dark',
+            fontFamily: 'var(--font-sans), Inter, ui-sans-serif, system-ui, sans-serif',
+            themeVariables: {
+              background: '#071827',
+              primaryColor: '#0f2a3a',
+              primaryTextColor: '#f8fafc',
+              primaryBorderColor: '#4ee1c1',
+              lineColor: '#67e8f9',
+              secondaryColor: '#11283a',
+              tertiaryColor: '#0b1f2d',
+              clusterBkg: '#0b1f2d',
+              clusterBorder: '#2a5263',
+              edgeLabelBackground: '#071827',
+              fontFamily: 'var(--font-sans), Inter, ui-sans-serif, system-ui, sans-serif'
+            }
+          })
           if (cancelled) return
 
           const figure = document.createElement('figure')

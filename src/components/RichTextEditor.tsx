@@ -62,7 +62,8 @@ import {
 } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { cn } from '../lib/classes'
-import { MERMAID_SAFE_CONFIG, sanitizeMermaidSource } from '../lib/mermaid'
+import { sanitizeMermaidSource } from '../lib/mermaid'
+import { renderMermaidSource } from '../lib/mermaid-client'
 import MicroButton from './MicroButton'
 import type { AppState, BinaryFiles, ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types'
 import type { ExcalidrawElement, NonDeleted } from '@excalidraw/excalidraw/element/types'
@@ -2483,10 +2484,7 @@ function LiveMermaidPreview({ source, onValidChange }: { source: string; onValid
           return
         }
         try {
-          const { default: mermaid } = await import('mermaid')
-          mermaid.initialize({ ...MERMAID_SAFE_CONFIG, theme: 'default' })
-          await mermaid.parse(clean, { suppressErrors: false })
-          const rendered = await mermaid.render(`inline-mermaid-${Date.now()}`, clean)
+          const rendered = await renderMermaidSource(clean, `inline-mermaid-${Date.now()}`)
           if (currentId !== renderId.current) return
           setSvg(rendered.svg)
           setError('')
