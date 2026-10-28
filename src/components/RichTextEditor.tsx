@@ -846,15 +846,6 @@ function EditorShell({
           <div className="ml-auto flex shrink-0 items-center gap-1.5">
             <MicroButton
               type="button"
-              onClick={onOpenDiagram}
-              className="toolbar-tooltip inline-flex h-9 items-center gap-2 rounded-lg border border-teal-200 bg-teal-50 px-3 text-xs font-bold text-teal-800 transition hover:bg-teal-100"
-              data-tooltip="Draw or generate a diagram"
-            >
-              <Workflow size={16} />
-              Draw
-            </MicroButton>
-            <MicroButton
-              type="button"
               onClick={onOpenAi}
               className="toolbar-tooltip inline-flex h-9 items-center gap-2 rounded-lg border border-fuchsia-200 bg-fuchsia-50 px-3 text-xs font-bold text-fuchsia-800 transition hover:bg-fuchsia-100"
               data-tooltip="Ask AI"
@@ -1374,7 +1365,7 @@ function AiAssistantDrawer({
         <div className="grid min-h-0 flex-1 overflow-hidden lg:grid-cols-[340px_1fr]">
           <aside className="min-h-0 overflow-y-auto border-r border-white/10 bg-white/[0.025] p-4">
             <div className="grid grid-cols-3 gap-1 rounded-xl border border-white/10 bg-black/30 p-1">
-              <WorkflowTab active={workflow === 'draft'} icon={FileCode2} label="Brief → Draft" onClick={() => onWorkflowChange('draft')} />
+              <WorkflowTab active={workflow === 'draft'} icon={FileCode2} label="Draft" onClick={() => onWorkflowChange('draft')} />
               <WorkflowTab active={workflow === 'improve'} icon={Sparkles} label="Improve" onClick={() => onWorkflowChange('improve')} />
               <WorkflowTab active={workflow === 'seo-media'} icon={ImagePlus} label="SEO/Media" onClick={() => onWorkflowChange('seo-media')} />
             </div>
@@ -1382,8 +1373,8 @@ function AiAssistantDrawer({
             {workflow === 'draft' ? (
               <div className="mt-4 space-y-4">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-fuchsia-300">Brief, outline, then draft</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-400">Define the audience and source notes first. Ask for an outline in the notes when you want to shape the structure before drafting.</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-fuchsia-300">Draft from idea</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-400">Use this when you have rough points and want a complete first article inside the assistant.</p>
                 </div>
                 <AiInput label="Topic" value={form.topic} onChange={topic => onChange({ ...form, topic })} placeholder="Kafka retries, idempotency, system design..." />
                 <label className="block">

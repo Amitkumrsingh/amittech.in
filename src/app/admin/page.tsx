@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 
 export default function AdminPage() {
   return (
-    <main className="studio-page">
+    <main className="mx-auto max-w-[1720px] px-4 pb-10 pt-20 sm:px-6 sm:pb-14 sm:pt-24 2xl:px-8">
       <AdminDashboard />
     </main>
   )

@@ -224,7 +224,6 @@ export default function AdminDashboard() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [form, setForm] = useState<PostForm>(emptyForm)
-  const [dirty, setDirty] = useState(false)
   const googleButtonRef = useRef<HTMLDivElement | null>(null)
 
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
@@ -363,7 +362,6 @@ export default function AdminDashboard() {
 
   function updateForm<K extends keyof PostForm>(key: K, value: PostForm[K]) {
     setForm(current => ({ ...current, [key]: value }))
-    setDirty(true)
   }
 
   function getPayload(nextStatus = form.status) {
@@ -400,7 +398,6 @@ export default function AdminDashboard() {
         : await requestJson<{ post: CmsPost }>('/api/posts', { method: 'POST', body: JSON.stringify(payload) })
 
       setForm(postToForm(data.post))
-      setDirty(false)
       setMessage(nextStatus === 'PUBLISHED' ? 'Post published' : 'Post saved')
       await loadPosts()
     } catch (requestError) {
@@ -511,7 +508,7 @@ export default function AdminDashboard() {
       initial="hidden"
       animate="show"
       variants={motionTheme.variants.containerStagger(0.04)}
-      className="cms-shell relative overflow-hidden border border-white/10"
+      className="cms-shell relative overflow-hidden rounded-[20px] border border-white/10"
     >
       <a href="#cms-content" className="sr-only focus:not-sr-only focus:absolute focus:left-5 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-secondary focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-slate-950">
         Skip to CMS content
@@ -623,7 +620,7 @@ export default function AdminDashboard() {
                 </div>
                 <MicroButton
                   type="button"
-                  onClick={() => { setForm(emptyForm); setDirty(false) }}
+                  onClick={() => setForm(emptyForm)}
                   className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-secondary/60 bg-secondary px-4 text-sm font-semibold text-black shadow-[0_14px_30px_-18px_rgba(34,211,238,.9)] transition hover:bg-auroraTeal"
                 >
                   <Plus size={16} />
@@ -661,7 +658,7 @@ export default function AdminDashboard() {
               <div className="mt-4 space-y-3">
                 {filteredPosts.length ? (
                   filteredPosts.map(post => (
-                    <PostListItem key={post.id} post={post} active={post.id === form.id} onSelect={() => { setForm(postToForm(post)); setDirty(false) }} />
+                    <PostListItem key={post.id} post={post} active={post.id === form.id} onSelect={() => setForm(postToForm(post))} />
                   ))
                 ) : (
                   <p className="rounded-2xl border border-dashed border-white/10 p-5 text-sm leading-7 text-slate-400">
@@ -698,7 +695,7 @@ export default function AdminDashboard() {
                   <h2 className="mt-2 truncate font-display text-2xl font-semibold text-white">
                     {form.title || 'Untitled production note'}
                   </h2>
-                  <p className="mt-1 text-xs text-slate-500" aria-live="polite">{saving ? 'Saving…' : error ? 'Save failed' : dirty ? 'Unsaved changes' : form.id ? 'All changes saved' : 'New draft'}</p>
+                  <p className="mt-1 text-xs text-slate-500">Draft locally, shape the story, then publish when it reads right.</p>
                 </div>
                 <div className="flex flex-wrap gap-2 xl:justify-end">
                   <ActionButton icon={Save} onClick={() => savePost('DRAFT')} disabled={saving}>
@@ -725,8 +722,8 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <div className="cms-document-stack p-4 sm:p-5">
-              <div className="story-settings rounded-2xl border border-white/10 bg-black/20 p-4 sm:p-5">
+              <div className="p-4 sm:p-5">
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4 sm:p-5">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <h3 className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">
                     <FileText size={15} />
@@ -735,7 +732,7 @@ export default function AdminDashboard() {
                   <StatusPill status={form.status} />
                 </div>
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                <Field label="Title" className="story-settings-title xl:col-span-2">
+                <Field label="Title" className="xl:col-span-2">
                   <input value={form.title} onChange={event => updateForm('title', event.target.value)} className={inputClassName} />
                 </Field>
                 <Field label="Slug">
@@ -779,11 +776,7 @@ export default function AdminDashboard() {
               </Field>
               </div>
 
-              <FieldGroup label="Article body" className="story-document mt-4">
-                <label className="studio-title-field">
-                  <span className="sr-only">Article title</span>
-                  <textarea value={form.title} onChange={event => updateForm('title', event.target.value)} rows={2} placeholder="Article title" />
-                </label>
+              <FieldGroup label="Article body" className="mt-4">
                 <RichTextEditor
                   value={form.html}
                   onChange={value => updateForm('html', value)}
@@ -815,7 +808,7 @@ export default function AdminDashboard() {
                 />
               </FieldGroup>
 
-              <div className="story-settings story-seo mt-5 rounded-2xl border border-white/10 bg-black/20 p-4 sm:p-5">
+              <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4 sm:p-5">
                 <h3 className="mb-4 inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">
                   <Sparkles size={15} />
                   SEO and distribution
@@ -850,7 +843,7 @@ export default function AdminDashboard() {
                   <ActionButton icon={Save} onClick={() => savePost(form.status)} disabled={saving} variant="primary">
                     {saving ? 'Saving...' : 'Save changes'}
                   </ActionButton>
-                  <ActionButton icon={RotateCcw} onClick={() => { setForm(emptyForm); setDirty(false) }} disabled={saving}>
+                  <ActionButton icon={RotateCcw} onClick={() => setForm(emptyForm)} disabled={saving}>
                     Reset
                   </ActionButton>
                 </div>

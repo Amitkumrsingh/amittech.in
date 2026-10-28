@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 
 type MermaidArticleContentProps = {
   html: string
@@ -25,15 +25,6 @@ function isMermaidSource(source: HTMLElement, code: string) {
 
 export default function MermaidArticleContent({ html }: MermaidArticleContentProps) {
   const contentRef = useRef<HTMLDivElement | null>(null)
-  const [theme, setTheme] = useState<'light' | 'dark'>('light')
-
-  useEffect(() => {
-    const readTheme = () => setTheme(document.documentElement.dataset.editorialTheme === 'dark' ? 'dark' : 'light')
-    readTheme()
-    const observer = new MutationObserver(readTheme)
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-editorial-theme'] })
-    return () => observer.disconnect()
-  }, [])
 
   useEffect(() => {
     const root = contentRef.current
@@ -48,20 +39,20 @@ export default function MermaidArticleContent({ html }: MermaidArticleContentPro
       mermaid.initialize({
         startOnLoad: false,
         securityLevel: 'strict',
-        theme,
+        theme: 'dark',
         fontFamily: 'var(--font-sans), Inter, ui-sans-serif, system-ui, sans-serif',
         suppressErrorRendering: true,
         themeVariables: {
-          background: theme === 'dark' ? '#171b18' : '#ffffff',
-          primaryColor: theme === 'dark' ? '#173530' : '#e2f2ef',
-          primaryTextColor: theme === 'dark' ? '#f2f3ef' : '#171918',
-          primaryBorderColor: theme === 'dark' ? '#65c9be' : '#087f78',
-          lineColor: theme === 'dark' ? '#65c9be' : '#087f78',
-          secondaryColor: theme === 'dark' ? '#1c211d' : '#f1f2ed',
-          tertiaryColor: theme === 'dark' ? '#111412' : '#faf9f6',
-          clusterBkg: theme === 'dark' ? '#1c211d' : '#f1f2ed',
-          clusterBorder: theme === 'dark' ? '#485149' : '#c5c8c2',
-          edgeLabelBackground: theme === 'dark' ? '#171b18' : '#ffffff',
+          background: '#071827',
+          primaryColor: '#0f2a3a',
+          primaryTextColor: '#f8fafc',
+          primaryBorderColor: '#4ee1c1',
+          lineColor: '#67e8f9',
+          secondaryColor: '#11283a',
+          tertiaryColor: '#0b1f2d',
+          clusterBkg: '#0b1f2d',
+          clusterBorder: '#2a5263',
+          edgeLabelBackground: '#071827',
           fontFamily: 'var(--font-sans), Inter, ui-sans-serif, system-ui, sans-serif'
         }
       })
@@ -125,7 +116,7 @@ export default function MermaidArticleContent({ html }: MermaidArticleContentPro
     return () => {
       cancelled = true
     }
-  }, [html, theme])
+  }, [html])
 
   return (
     <div
