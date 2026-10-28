@@ -64,6 +64,7 @@ import { createPortal } from 'react-dom'
 import { cn } from '../lib/classes'
 import { sanitizeMermaidSource } from '../lib/mermaid'
 import { renderMermaidSource } from '../lib/mermaid-client'
+import { createAiSseParser, parseAiSseFrame } from '../lib/ai-sse'
 import MicroButton from './MicroButton'
 import type { AppState, BinaryFiles, ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types'
 import type { ExcalidrawElement, NonDeleted } from '@excalidraw/excalidraw/element/types'
@@ -684,35 +685,27 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
       }
       if (!response.body) throw new Error('AI did not return a stream')
       const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
+      const sseParser = createAiSseParser()
       const processFrame = (frame: string) => {
-        const lines = frame.split(/\r?\n/)
-        let eventName = ''
-        const dataLines: string[] = []
-        for (const line of lines) {
-          if (line.startsWith('event:')) eventName = line.slice(6).trim()
-          if (line.startsWith('data:')) dataLines.push(line.slice(5).trimStart())
-        }
-        if (!dataLines.length) return
-        const data = JSON.parse(dataLines.join('\n')) as { text?: string; error?: string; contentType?: 'markdown' | 'mermaid' | 'metadata'; cached?: boolean; result?: AiResult }
-        if (eventName === 'start') setAiCacheHit(Boolean(data.cached))
-        if (eventName === 'start' && data.contentType === 'mermaid') setAiStreamType('mermaid')
-        if (eventName === 'delta' && data.text) setAiStreamText(current => current + data.text)
-        if (eventName === 'complete') {
+        const parsed = parseAiSseFrame(frame)
+        if (!parsed) return
+        const data = JSON.parse(parsed.data) as { text?: string; error?: string; contentType?: 'markdown' | 'mermaid' | 'metadata'; cached?: boolean; result?: AiResult }
+        if (parsed.event === 'start') setAiCacheHit(Boolean(data.cached))
+        if (parsed.event === 'start' && data.contentType === 'mermaid') setAiStreamType('mermaid')
+        if (parsed.event === 'delta' && data.text) setAiStreamText(current => current + data.text)
+        if (parsed.event === 'complete') {
           if (data.text) setAiStreamText(data.text)
           if (data.result) setAiResult(data.result)
         }
-        if (eventName === 'error') throw new Error(data.error || 'AI generation failed')
+        if (parsed.event === 'error') throw new Error(data.error || 'AI generation failed')
       }
       while (true) {
         const { done, value } = await reader.read()
-        buffer += decoder.decode(value || new Uint8Array(), { stream: !done })
-        const frames = buffer.split(/\r?\n\r?\n/)
-        buffer = frames.pop() || ''
-        for (const frame of frames) processFrame(frame)
+        if (value?.byteLength) {
+          for (const event of sseParser.push(value)) processFrame(`event: ${event.event}\ndata: ${event.data}`)
+        }
         if (done) {
-          if (buffer.trim()) processFrame(buffer)
+          for (const event of sseParser.finish()) processFrame(`event: ${event.event}\ndata: ${event.data}`)
           break
         }
       }
