@@ -2374,7 +2374,6 @@ function InlineAiBlock({ form, streaming, streamText, streamType, hasSelection, 
             <option value="tags">Tags</option>
             <option value="excerpt">Excerpt</option>
             <option value="linkedin-post">LinkedIn post</option>
-            <option value="image-prompt">Cover prompt</option>
           </select>
           <button type="button" onClick={onDismiss} className="ml-auto rounded-lg p-1.5 text-slate-500 hover:bg-slate-100" aria-label="Close AI assistant"><X size={16} /></button>
         </div>
