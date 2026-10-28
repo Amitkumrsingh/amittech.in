@@ -25,4 +25,5 @@ for (let attempt = 1; attempt <= retryCount; attempt += 1) {
   }
 }
 
-process.exit(result?.status || 1)
+const exitCode = typeof result?.status === 'number' ? result.status : 1
+process.exit(exitCode)
