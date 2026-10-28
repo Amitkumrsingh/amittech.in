@@ -83,7 +83,7 @@ export type AiDiagramResponse = {
   notes?: string[]
 }
 
-export const AI_PROMPT_VERSION = 'inline-ai-v1'
+export const AI_PROMPT_VERSION = 'inline-ai-v2'
 
 const ACTION_LABELS: Record<AiAction, string> = {
   'generate-draft': 'Generate blog draft',

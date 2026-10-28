@@ -17,7 +17,7 @@ import { canManageResource, requireUser } from '../../../lib/api/auth'
 import { prisma } from '../../../lib/api/prisma'
 import { aiStreamSchema } from '../../../lib/api/schemas'
 import { recordAiGenerationMetric, recordApiMetric } from '../../../lib/api/metrics'
-import { sanitizeMermaidSource } from '../../../lib/mermaid'
+import { extractMermaidSource } from '../../../lib/mermaid'
 
 const diagramStart = /^(?:flowchart|graph|sequenceDiagram)\b/i
 
@@ -35,7 +35,7 @@ function event(res: NextApiResponse, type: string, payload: Record<string, unkno
 }
 
 function safeDiagramSource(source: string) {
-  const clean = sanitizeMermaidSource(source)
+  const clean = extractMermaidSource(source)
   if (clean.length > 18000 || !diagramStart.test(clean) || clean.includes('%%{') || /\b(click|href|javascript:|<script)/i.test(clean)) return ''
 
   const lines = clean.split(/\r?\n/).map(line => line.trim()).filter(Boolean)
