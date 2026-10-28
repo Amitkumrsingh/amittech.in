@@ -2351,6 +2351,7 @@ function InlineAiBlock({ form, streaming, streamText, streamType, hasSelection, 
 }) {
   const [codeMode, setCodeMode] = useState(false)
   const hasOutput = Boolean(streamText.trim())
+  const diagramMode = form.action === 'system-diagram'
 
   return (
     <section className="border-t border-cyan-200 bg-white px-4 py-4 text-slate-900 shadow-inner" aria-label="Inline AI writing assistant">
@@ -2365,7 +2366,7 @@ function InlineAiBlock({ form, streaming, streamText, streamType, hasSelection, 
           <span className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-700">Write with AI</span>
           <button type="button" onClick={() => onGenerate('generate-draft')} disabled={streaming || metadataLoading} className={cn('rounded-lg px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50', form.action === 'generate-draft' ? 'bg-cyan-600 text-white' : 'bg-slate-100 text-slate-700')}>Write</button>
           <button type="button" onClick={() => onGenerate('rewrite')} disabled={streaming || metadataLoading || !hasSelection} className={cn('rounded-lg px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50', form.action === 'rewrite' ? 'bg-cyan-600 text-white' : 'bg-slate-100 text-slate-700')}>Improve selection</button>
-          <button type="button" onClick={() => onGenerate('system-diagram')} disabled={streaming || metadataLoading} className={cn('rounded-lg px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50', form.action === 'system-diagram' ? 'bg-cyan-600 text-white' : 'bg-slate-100 text-slate-700')}>Generate diagram</button>
+          <button type="button" aria-pressed={diagramMode} onClick={() => onGenerate('system-diagram')} disabled={streaming || metadataLoading} className={cn('rounded-lg px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50', diagramMode ? 'bg-cyan-600 text-white shadow-sm ring-2 ring-cyan-200' : 'border border-cyan-200 bg-cyan-50 text-cyan-800 hover:bg-cyan-100')}>Generate diagram</button>
           <select defaultValue="" disabled={streaming || metadataLoading} onChange={event => { if (event.target.value) onMetadata(event.target.value as AiAction); event.target.value = '' }} className="rounded-lg border border-slate-200 bg-slate-100 px-2 py-1.5 text-xs font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">
             <option value="">More AI actions</option>
             <option value="seo">SEO metadata</option>
@@ -2391,6 +2392,21 @@ function InlineAiBlock({ form, streaming, streamText, streamType, hasSelection, 
             <input value={form.desiredLength} onChange={event => onChange({ ...form, desiredLength: event.target.value })} placeholder="Length" className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs" />
           </div>
         </div>
+        {diagramMode ? (
+          <div className="mt-3 rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-3 text-xs text-cyan-950">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="font-semibold">Live Mermaid diagram</p>
+                <p className="mt-1 leading-5 text-cyan-800">Describe the flow in plain English. You can review the rendered diagram, edit its code, or repair it before accepting.</p>
+              </div>
+              <span className="rounded-full bg-white/70 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-700">Preview first</span>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button type="button" onClick={() => onChange({ ...form, notes: 'Create a flowchart showing Client → API → Database.' })} className="rounded-lg border border-cyan-200 bg-white px-2.5 py-1.5 font-semibold text-cyan-800 hover:bg-cyan-100">Use flowchart example</button>
+              <button type="button" onClick={() => onChange({ ...form, notes: 'Create a sequence diagram showing Client, API, and Database handling a request.' })} className="rounded-lg border border-cyan-200 bg-white px-2.5 py-1.5 font-semibold text-cyan-800 hover:bg-cyan-100">Use sequence example</button>
+            </div>
+          </div>
+        ) : null}
         <p className="mt-2 text-[11px] font-medium text-slate-500">{contextLabel}</p>
         <p className="mt-1 text-[11px] text-slate-400">Help: type <code>/ai</code> or <code>/generate</code> in an empty paragraph to reopen this block.</p>
         {metadataLoading ? <p className="mt-3 rounded-lg bg-violet-50 px-3 py-2 text-xs text-violet-700">Generating metadata…</p> : null}
@@ -2399,7 +2415,10 @@ function InlineAiBlock({ form, streaming, streamText, streamType, hasSelection, 
         {hasOutput ? (
           <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
             <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2">
-              <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">{streaming ? 'Generating live' : cacheHit ? 'Reused result' : streamType === 'mermaid' ? 'Diagram preview' : 'AI preview'}</span>
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">{streaming ? 'Generating live' : cacheHit ? 'Reused result' : streamType === 'mermaid' ? 'Diagram preview' : 'AI preview'}</span>
+                {streamType === 'mermaid' && !streaming ? <p className="mt-0.5 text-[11px] text-slate-500">Review the rendering or switch to Code to edit the source.</p> : null}
+              </div>
               <div className="flex items-center gap-2">
                 {streamType === 'mermaid' ? <button type="button" onClick={() => setCodeMode(current => !current)} className="text-xs font-semibold text-cyan-700">{codeMode ? 'Preview' : 'Code'}</button> : null}
                 {streaming ? <button type="button" onClick={onStop} className="rounded-lg bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">Stop</button> : <button type="button" onClick={() => onGenerate(form.action, true)} className="rounded-lg bg-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700"><RefreshCw size={12} className="mr-1 inline" />Regenerate</button>}

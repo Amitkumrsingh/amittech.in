@@ -5,6 +5,7 @@ import { MERMAID_SAFE_CONFIG, sanitizeMermaidSource } from '../lib/mermaid'
 
 type MermaidArticleContentProps = {
   html: string
+  className?: string
 }
 
 const mermaidDiagramStart = /^(?:---[\s\S]*?---\s*)?(?:(?:%%\{[\s\S]*?\}%%|%%[^\n]*)\s*)*(?:architecture(?:-beta)?|block(?:-beta)?|c4context|c4container|c4component|c4deployment|c4dynamic|classDiagram|erDiagram|flowchart|gantt|gitGraph|graph|journey|mindmap|packet-beta|pie|quadrantChart|radar-beta|requirementDiagram|sankey-beta|sequenceDiagram|stateDiagram(?:-v2)?|timeline|treemap-beta|xychart-beta|zenuml)\b/i
@@ -24,7 +25,7 @@ function isMermaidSource(source: HTMLElement, code: string) {
   return explicitlyMarked || mermaidDiagramStart.test(code.trim())
 }
 
-export default function MermaidArticleContent({ html }: MermaidArticleContentProps) {
+export default function MermaidArticleContent({ html, className }: MermaidArticleContentProps) {
   const contentRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -123,7 +124,7 @@ export default function MermaidArticleContent({ html }: MermaidArticleContentPro
   return (
     <div
       ref={contentRef}
-      className="cms-rich-content mt-10 space-y-6 text-lg leading-9 text-slate-300 [&_figure]:my-8 [&_h2]:scroll-mt-28 [&_h2]:pt-4 [&_h3]:scroll-mt-28 [&_h3]:pt-3 [&_table]:w-full [&_table]:overflow-hidden [&_table]:rounded-2xl [&_td]:border [&_td]:border-white/10 [&_td]:p-3 [&_th]:border [&_th]:border-white/10 [&_th]:p-3"
+      className={className || "cms-rich-content mt-10 space-y-6 text-lg leading-9 text-slate-300 [&_figure]:my-8 [&_h2]:scroll-mt-28 [&_h2]:pt-4 [&_h3]:scroll-mt-28 [&_h3]:pt-3 [&_table]:w-full [&_table]:overflow-hidden [&_table]:rounded-2xl [&_td]:border [&_td]:border-white/10 [&_td]:p-3 [&_th]:border [&_th]:border-white/10 [&_th]:p-3"}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   )

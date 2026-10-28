@@ -28,6 +28,7 @@ import { motion } from '../lib/motion'
 import motionTheme from '../lib/motionTheme'
 import { cn } from '../lib/classes'
 import MicroButton from './MicroButton'
+import MermaidArticleContent from './MermaidArticleContent'
 import RichTextEditor from './RichTextEditor'
 
 type Role = 'USER' | 'SUPER_ADMIN'
@@ -898,9 +899,9 @@ export default function AdminDashboard() {
                   <p className="text-xs font-semibold uppercase tracking-[0.24em] text-secondary">{form.category || 'Engineering'}</p>
                   <h3 className="mt-3 font-display text-3xl font-semibold leading-tight text-white">{form.title || 'Untitled article'}</h3>
                   <p className="mt-4 text-base leading-8 text-slate-300">{form.excerpt || 'The hook should name the real engineering tension.'}</p>
-                  <div
-                    className="cms-rich-content mt-5 space-y-4 text-sm leading-7 text-slate-300"
-                    dangerouslySetInnerHTML={{ __html: form.html || '<p>Write the lesson like a senior engineer talking to another engineer.</p>' }}
+                  <MermaidArticleContent
+                    html={form.html || '<p>Write the lesson like a senior engineer talking to another engineer.</p>'}
+                    className="cms-rich-content mt-5 space-y-4 text-sm leading-7 text-slate-300 [&_figure]:my-5 [&_h2]:scroll-mt-28 [&_h2]:pt-3 [&_h3]:scroll-mt-28 [&_h3]:pt-2 [&_table]:w-full [&_table]:overflow-hidden [&_td]:border [&_td]:border-white/10 [&_td]:p-2 [&_th]:border [&_th]:border-white/10 [&_th]:p-2"
                   />
                 </div>
               </article>
