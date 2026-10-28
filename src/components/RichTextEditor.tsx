@@ -120,6 +120,12 @@ type AiAction =
   | 'format-content'
   | 'system-diagram'
 
+const aiMetadataActions: AiAction[] = ['seo', 'title-ideas', 'tags', 'excerpt', 'linkedin-post']
+
+function isMetadataAction(action: AiAction) {
+  return aiMetadataActions.includes(action)
+}
+
 type AiBlock = {
   type: 'heading' | 'paragraph' | 'blockquote' | 'code' | 'list'
   level?: 1 | 2 | 3 | 4
@@ -630,7 +636,8 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
   }
 
   async function runInlineAi(action: AiAction = aiForm.action, bypassCache = false) {
-    if (!editor || !['generate-draft', 'rewrite', 'format-content', 'system-diagram'].includes(action)) return
+    const streamActions: AiAction[] = ['generate-draft', 'rewrite', 'format-content', 'system-diagram', 'seo', 'title-ideas', 'tags', 'excerpt', 'linkedin-post']
+    if (!editor || !streamActions.includes(action)) return
     aiAbortRef.current?.abort()
     const controller = new AbortController()
     aiAbortRef.current = controller
@@ -641,6 +648,8 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
     setAiStreamError('')
     setAiMermaidValid(false)
     setAiStreamType(action === 'system-diagram' ? 'mermaid' : 'markdown')
+    setAiResult(null)
+    if (isMetadataAction(action)) setAiLoading(true)
     setAiStreaming(true)
 
     try {
@@ -676,23 +685,35 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
+      const processFrame = (frame: string) => {
+        const lines = frame.split(/\r?\n/)
+        let eventName = ''
+        const dataLines: string[] = []
+        for (const line of lines) {
+          if (line.startsWith('event:')) eventName = line.slice(6).trim()
+          if (line.startsWith('data:')) dataLines.push(line.slice(5).trimStart())
+        }
+        if (!dataLines.length) return
+        const data = JSON.parse(dataLines.join('\n')) as { text?: string; error?: string; contentType?: 'markdown' | 'mermaid' | 'metadata'; cached?: boolean; result?: AiResult }
+        if (eventName === 'start') setAiCacheHit(Boolean(data.cached))
+        if (eventName === 'start' && data.contentType === 'mermaid') setAiStreamType('mermaid')
+        if (eventName === 'delta' && data.text) setAiStreamText(current => current + data.text)
+        if (eventName === 'complete') {
+          if (data.text) setAiStreamText(data.text)
+          if (data.result) setAiResult(data.result)
+        }
+        if (eventName === 'error') throw new Error(data.error || 'AI generation failed')
+      }
       while (true) {
         const { done, value } = await reader.read()
         buffer += decoder.decode(value || new Uint8Array(), { stream: !done })
         const frames = buffer.split(/\r?\n\r?\n/)
         buffer = frames.pop() || ''
-        for (const frame of frames) {
-          const eventMatch = frame.match(/^event:\s*(\w+)\s*$/m)
-          const dataMatch = frame.match(/^data:\s*(.+)$/m)
-          if (!dataMatch) continue
-          const data = JSON.parse(dataMatch[1]) as { text?: string; error?: string; contentType?: 'markdown' | 'mermaid'; cached?: boolean }
-          if (eventMatch?.[1] === 'start') setAiCacheHit(Boolean(data.cached))
-          if (eventMatch?.[1] === 'start' && data.contentType) setAiStreamType(data.contentType)
-          if (eventMatch?.[1] === 'delta' && data.text) setAiStreamText(current => current + data.text)
-          if (eventMatch?.[1] === 'complete' && data.text) setAiStreamText(data.text)
-          if (eventMatch?.[1] === 'error') throw new Error(data.error || 'AI generation failed')
+        for (const frame of frames) processFrame(frame)
+        if (done) {
+          if (buffer.trim()) processFrame(buffer)
+          break
         }
-        if (done) break
       }
     } catch (error) {
       const wasAborted = controller.signal.aborted
@@ -703,6 +724,7 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
     } finally {
       if (aiAbortRef.current === controller) aiAbortRef.current = null
       setAiStreaming(false)
+      if (isMetadataAction(action)) setAiLoading(false)
     }
   }
 
@@ -912,7 +934,7 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
           onChange={setAiForm}
           onGenerate={runInlineAi}
           onStreamTextChange={setAiStreamText}
-          onMetadata={action => { setAiForm(current => ({ ...current, action })); setAiResult(null); setAiError(''); setAiStreamError(''); void runAi(action) }}
+          onMetadata={action => { setAiForm(current => ({ ...current, action })); setAiResult(null); setAiError(''); setAiStreamError(''); void runInlineAi(action) }}
           onApplyMetadata={applyAiMetadata}
           onStop={() => { aiAbortRef.current?.abort() }}
           onAccept={acceptInlineAi}
@@ -2410,7 +2432,8 @@ function InlineAiBlock({ form, streaming, streamText, streamType, hasSelection, 
         <p className="mt-1 text-[11px] text-slate-400">Help: type <code>/ai</code> or <code>/generate</code> in an empty paragraph to reopen this block.</p>
         {metadataLoading ? <p className="mt-3 rounded-lg bg-violet-50 px-3 py-2 text-xs text-violet-700">Generating metadata…</p> : null}
         {error ? <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p> : null}
-        {metadataText ? <div className="mt-3 rounded-xl border border-violet-200 bg-violet-50 p-3"><div className="flex items-center justify-between gap-3"><span className="text-[10px] font-bold uppercase tracking-[0.16em] text-violet-700">{metadataLoading ? 'Generating metadata' : 'Metadata preview'}</span><button type="button" onClick={onApplyMetadata} disabled={metadataLoading} className="rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-40">Apply</button></div><pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap text-xs leading-5 text-violet-950">{metadataText}</pre></div> : null}
+        {metadataLoading && !metadataText ? <p className="mt-3 rounded-lg bg-violet-50 px-3 py-2 text-xs text-violet-700">Generating validated metadata…</p> : null}
+        {metadataText ? <div className="mt-3 rounded-xl border border-violet-200 bg-violet-50 p-3"><div className="flex flex-wrap items-center justify-between gap-3"><span className="text-[10px] font-bold uppercase tracking-[0.16em] text-violet-700">{metadataLoading ? 'Generating metadata' : cacheHit ? 'Reused metadata' : 'Metadata preview'}</span><div className="flex items-center gap-2"><button type="button" onClick={() => onGenerate(form.action, true)} disabled={metadataLoading} className="rounded-lg border border-violet-300 px-2.5 py-1 text-xs font-semibold text-violet-800 disabled:opacity-40">Regenerate</button><button type="button" onClick={onApplyMetadata} disabled={metadataLoading} className="rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-40">Apply</button></div></div><pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap text-xs leading-5 text-violet-950">{metadataText}</pre></div> : null}
         {hasOutput ? (
           <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
             <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2">

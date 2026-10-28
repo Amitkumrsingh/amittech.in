@@ -8,6 +8,8 @@ import {
   checkAiRateLimit,
   cleanupExpiredAiCache,
   getCachedAiResponse,
+  isAiMetadataAction,
+  parseStreamingMetadata,
   streamGeminiText,
   type AiStreamInput
 } from '../../../lib/api/ai'
@@ -34,7 +36,49 @@ function event(res: NextApiResponse, type: string, payload: Record<string, unkno
 
 function safeDiagramSource(source: string) {
   const clean = sanitizeMermaidSource(source)
-  return clean.length <= 18000 && diagramStart.test(clean) && !clean.includes('%%{') && !/\b(click|href|javascript:|<script)/i.test(clean) ? clean : ''
+  if (clean.length > 18000 || !diagramStart.test(clean) || clean.includes('%%{') || /\b(click|href|javascript:|<script)/i.test(clean)) return ''
+
+  const lines = clean.split(/\r?\n/).map(line => line.trim()).filter(Boolean)
+  const firstLine = lines[0] || ''
+  const hasFlowEdge = lines.some(line => /(?:-->|---|-.->|==>|--\|[^|]+\|-->)/.test(line))
+  const hasSequenceMessage = lines.some(line => /(?:->>|-->>|--?>|->)\s*[^:]+:/.test(line))
+  const hasStructure = /sequenceDiagram/i.test(firstLine) ? hasSequenceMessage : hasFlowEdge
+  if (!hasStructure) return ''
+
+  let quote: '"' | "'" | null = null
+  let escaped = false
+  const stack: string[] = []
+  for (const character of clean) {
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (character === '\\' && quote) {
+      escaped = true
+      continue
+    }
+    if (quote) {
+      if (character === quote) quote = null
+      continue
+    }
+    if (character === '"' || character === "'") {
+      quote = character as '"' | "'"
+      continue
+    }
+    if ('([{'.includes(character)) stack.push(character)
+    if (')]}'.includes(character)) {
+      const opening = stack.pop()
+      if (!opening || '([{'.indexOf(opening) !== ')]}'.indexOf(character)) return ''
+    }
+  }
+  if (quote || stack.length) return ''
+  return clean
+}
+
+function contentTypeForAction(action: AiStreamInput['action']) {
+  if (action === 'system-diagram') return 'mermaid'
+  if (isAiMetadataAction(action)) return 'metadata'
+  return 'markdown'
 }
 
 async function assertCanUseAiForStream(input: AiStreamInput, user: Awaited<ReturnType<typeof requireUser>>) {
@@ -71,15 +115,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (Math.random() < 0.05) void cleanupExpiredAiCache()
   const requestId = randomUUID()
 
-  if (cached?.text) {
+  if (cached?.text || cached?.structured) {
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8')
     res.setHeader('Cache-Control', 'no-cache, no-transform')
     res.setHeader('Connection', 'keep-alive')
     res.setHeader('X-Accel-Buffering', 'no')
     res.writeHead(200)
     event(res, 'start', { requestId, cached: true, contentType: cached.contentType })
-    event(res, 'delta', { requestId, text: cached.text })
-    event(res, 'complete', { requestId, cached: true, text: cached.text, contentType: cached.contentType })
+    if (cached.contentType === 'metadata') {
+      event(res, 'delta', { requestId, progress: true, cached: true })
+      event(res, 'complete', { requestId, cached: true, result: cached.structured, contentType: cached.contentType })
+    } else {
+      event(res, 'delta', { requestId, text: cached.text })
+      event(res, 'complete', { requestId, cached: true, text: cached.text, contentType: cached.contentType })
+    }
     res.end()
     await recordApiMetric({ route: '/api/ai/stream', method: 'POST', statusCode: 200, latencyMs: Date.now() - startedAt })
     await recordAiGenerationMetric({
@@ -122,7 +171,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   res.setHeader('Connection', 'keep-alive')
   res.setHeader('X-Accel-Buffering', 'no')
   res.writeHead(200)
-  event(res, 'start', { requestId, cached: false, contentType: input.action === 'system-diagram' ? 'mermaid' : 'markdown' })
+  event(res, 'start', { requestId, cached: false, contentType: contentTypeForAction(input.action) })
   const heartbeat = setInterval(() => {
     try {
       res.write(': keep-alive\n\n')
@@ -141,17 +190,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     for await (const chunk of streamGeminiText(prompt, input.action, controller.signal)) {
       if (firstOutputAt === undefined) firstOutputAt = Date.now()
       text += chunk
-      event(res, 'delta', { requestId, text: chunk })
+      if (isAiMetadataAction(input.action)) {
+        event(res, 'delta', { requestId, progress: true, receivedChars: text.length })
+      } else {
+        event(res, 'delta', { requestId, text: chunk })
+      }
     }
 
+    const structured = isAiMetadataAction(input.action) ? parseStreamingMetadata(input.action, text) : undefined
     const finalText = input.action === 'system-diagram' ? safeDiagramSource(text) : text.trim()
     if (!finalText) {
       validationErrorCode = 'AI_INVALID_RESPONSE'
       throw new ApiError(502, input.action === 'system-diagram' ? 'Gemini returned invalid Mermaid source.' : 'AI returned an empty response.', 'AI_INVALID_RESPONSE')
     }
-    await cacheAiResponse(user.id, input, finalText, input.action === 'system-diagram' ? 'mermaid' : 'markdown')
+    await cacheAiResponse(user.id, input, finalText, contentTypeForAction(input.action), structured)
     completed = true
-    event(res, 'complete', { requestId, cached: false, text: finalText, contentType: input.action === 'system-diagram' ? 'mermaid' : 'markdown' })
+    if (structured) {
+      event(res, 'complete', { requestId, cached: false, result: structured, contentType: 'metadata' })
+    } else {
+      event(res, 'complete', { requestId, cached: false, text: finalText, contentType: contentTypeForAction(input.action) })
+    }
   } catch (error) {
     if (error instanceof ApiError && error.code === 'AI_INVALID_RESPONSE') validationErrorCode = error.code
     if (!clientDisconnected) {

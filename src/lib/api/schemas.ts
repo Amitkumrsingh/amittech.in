@@ -76,7 +76,17 @@ export const aiGenerateSchema = z.object({
 })
 
 export const aiStreamSchema = aiGenerateSchema.extend({
-  action: z.enum(['generate-draft', 'rewrite', 'format-content', 'system-diagram']),
+  action: z.enum([
+    'generate-draft',
+    'rewrite',
+    'format-content',
+    'system-diagram',
+    'seo',
+    'title-ideas',
+    'tags',
+    'excerpt',
+    'linkedin-post'
+  ]),
   instruction: z.string().trim().max(2000).optional().nullable(),
   bypassCache: z.boolean().optional().default(false)
 })

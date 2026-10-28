@@ -21,6 +21,13 @@ export type AiAction =
 type AiInput = z.infer<typeof aiGenerateSchema>
 export type AiStreamInput = z.infer<typeof aiStreamSchema>
 
+export const AI_METADATA_ACTIONS = ['seo', 'title-ideas', 'tags', 'excerpt', 'linkedin-post'] as const
+export type AiMetadataAction = typeof AI_METADATA_ACTIONS[number]
+
+export function isAiMetadataAction(action: AiStreamInput['action']): action is AiMetadataAction {
+  return (AI_METADATA_ACTIONS as readonly string[]).includes(action)
+}
+
 type AiBlock = {
   type: 'heading' | 'paragraph' | 'blockquote' | 'code' | 'list'
   level?: 1 | 2 | 3 | 4
@@ -288,6 +295,26 @@ Use 6-14 nodes and concise labels. Do not use %%{init}%% directives, click handl
 ${context}`
   }
 
+  if (isAiMetadataAction(action)) {
+    const shape = action === 'seo'
+      ? '{"metaTitle":"string","metaDescription":"string","excerpt":"string","tags":["string"]}'
+      : action === 'title-ideas'
+        ? '{"titleIdeas":["string"]}'
+        : action === 'tags'
+          ? '{"tags":["string"]}'
+          : action === 'excerpt'
+            ? '{"excerpt":"string"}'
+            : '{"linkedinPost":"string","socialSnippets":["string"]}'
+
+    return `You are an editorial metadata assistant in a private engineering blog CMS.
+Return one valid JSON object only, with no markdown fences and no commentary.
+Do not invent personal experiences, metrics, companies, or claims that are not supported by the context.
+The response must match this shape: ${shape}
+Keep strings concise and useful for an engineering article.
+
+${context}`
+  }
+
   return `You are an AI writing assistant in a private engineering blog CMS.
 Generate only editable Markdown. Never publish, invent incidents, metrics, companies, outages, or personal stories. Use short paragraphs, clear headings when useful, and practical engineering tradeoffs.
 
@@ -337,11 +364,12 @@ export async function getCachedAiResponse(userId: string, input: AiStreamInput) 
     return null
   }
 
-  const result = cached.result as { text?: unknown }
+  const result = cached.result as { text?: unknown; structured?: unknown }
   return {
     requestHash,
     text: typeof result?.text === 'string' ? result.text : '',
-    contentType: cached.contentType
+    contentType: cached.contentType,
+    structured: result?.structured
   }
 }
 
@@ -361,8 +389,9 @@ export async function cleanupExpiredAiCache(limit = 50) {
   }
 }
 
-export async function cacheAiResponse(userId: string, input: AiStreamInput, text: string, contentType: string) {
+export async function cacheAiResponse(userId: string, input: AiStreamInput, text: string, contentType: string, structured?: AiStructuredResponse) {
   const requestHash = aiRequestHash(input.action, input)
+  const result = structured ? { text, structured } : { text }
   await prisma.aiResponseCache.upsert({
     where: { userId_requestHash: { userId, requestHash } },
     create: {
@@ -372,12 +401,12 @@ export async function cacheAiResponse(userId: string, input: AiStreamInput, text
       requestHash,
       model: modelForAction(input.action),
       promptVersion: AI_PROMPT_VERSION,
-      result: { text },
+      result,
       contentType,
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
     },
     update: {
-      result: { text },
+      result,
       contentType,
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
     }
@@ -649,6 +678,25 @@ function normalizeAiResponse(value: AiStructuredResponse): AiStructuredResponse 
     notes: value.notes?.slice(0, 8),
     content: value.content?.slice(0, 40)
   }
+}
+
+export function parseStreamingMetadata(action: AiMetadataAction, text: string): AiStructuredResponse {
+  const result = normalizeAiResponse(parseGeminiJson(text))
+  const valid = action === 'seo'
+    ? Boolean(result.metaTitle || result.metaDescription || result.excerpt || result.tags?.length)
+    : action === 'title-ideas'
+      ? Boolean(result.titleIdeas?.length)
+      : action === 'tags'
+        ? Boolean(result.tags?.length)
+        : action === 'excerpt'
+          ? Boolean(result.excerpt)
+          : Boolean(result.linkedinPost || result.socialSnippets?.length)
+
+  if (!valid) {
+    throw new ApiError(502, 'AI returned invalid metadata. Please try again.', 'AI_INVALID_RESPONSE')
+  }
+
+  return result
 }
 
 function normalizeDiagramResponse(value: unknown): AiDiagramResponse {
