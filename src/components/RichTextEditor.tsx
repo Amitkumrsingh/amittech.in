@@ -64,6 +64,7 @@ import { createPortal } from 'react-dom'
 import { cn } from '../lib/classes'
 import { sanitizeMermaidSource } from '../lib/mermaid'
 import { renderMermaidSource } from '../lib/mermaid-client'
+import { parseSseJsonFrame, splitSseFrames } from '../lib/sse'
 import MicroButton from './MicroButton'
 import type { AppState, BinaryFiles, ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types'
 import type { ExcalidrawElement, NonDeleted } from '@excalidraw/excalidraw/element/types'
@@ -687,15 +688,10 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
       const decoder = new TextDecoder()
       let buffer = ''
       const processFrame = (frame: string) => {
-        const lines = frame.split(/\r?\n/)
-        let eventName = ''
-        const dataLines: string[] = []
-        for (const line of lines) {
-          if (line.startsWith('event:')) eventName = line.slice(6).trim()
-          if (line.startsWith('data:')) dataLines.push(line.slice(5).trimStart())
-        }
-        if (!dataLines.length) return
-        const data = JSON.parse(dataLines.join('\n')) as { text?: string; error?: string; contentType?: 'markdown' | 'mermaid' | 'metadata'; cached?: boolean; result?: AiResult }
+        const parsed = parseSseJsonFrame(frame)
+        if (!parsed) return
+        const eventName = parsed.event
+        const data = parsed.payload as { text?: string; error?: string; contentType?: 'markdown' | 'mermaid' | 'metadata'; cached?: boolean; result?: AiResult }
         if (eventName === 'start') setAiCacheHit(Boolean(data.cached))
         if (eventName === 'start' && data.contentType === 'mermaid') setAiStreamType('mermaid')
         if (eventName === 'delta' && data.text) setAiStreamText(current => current + data.text)
@@ -708,8 +704,9 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
       while (true) {
         const { done, value } = await reader.read()
         buffer += decoder.decode(value || new Uint8Array(), { stream: !done })
-        const frames = buffer.split(/\r?\n\r?\n/)
-        buffer = frames.pop() || ''
+        const parsedFrames = splitSseFrames(buffer)
+        const frames = parsedFrames.frames
+        buffer = parsedFrames.remainder
         for (const frame of frames) processFrame(frame)
         if (done) {
           if (buffer.trim()) processFrame(buffer)
