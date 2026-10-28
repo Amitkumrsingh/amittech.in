@@ -7,6 +7,18 @@ type MetricInput = {
   latencyMs: number
 }
 
+export type AiGenerationMetricInput = {
+  userId?: string
+  postId?: string
+  requestId: string
+  action: string
+  cacheOutcome: 'hit' | 'miss' | 'bypassed'
+  timeToFirstOutputMs?: number
+  totalLatencyMs: number
+  completionState: 'completed' | 'cancelled' | 'failed'
+  validationErrorCode?: string
+}
+
 type SummaryRow = {
   requests: number
   errors: number
@@ -118,6 +130,31 @@ export async function recordApiMetric(input: MetricInput) {
     if (process.env.NODE_ENV === 'development') {
       // eslint-disable-next-line no-console
       console.warn('[api-metrics] failed to record metric', error)
+    }
+  }
+}
+
+export async function recordAiGenerationMetric(input: AiGenerationMetricInput) {
+  if (!shouldRecordMetrics()) return
+
+  try {
+    await prisma.aiGenerationMetric.create({
+      data: {
+        userId: input.userId || null,
+        postId: input.postId || null,
+        requestId: input.requestId,
+        action: input.action,
+        cacheOutcome: input.cacheOutcome,
+        timeToFirstOutputMs: input.timeToFirstOutputMs == null ? null : Math.max(0, Math.round(input.timeToFirstOutputMs)),
+        totalLatencyMs: Math.max(0, Math.round(input.totalLatencyMs)),
+        completionState: input.completionState,
+        validationErrorCode: input.validationErrorCode || null
+      }
+    })
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      // eslint-disable-next-line no-console
+      console.warn('[ai-metrics] failed to record metric', error)
     }
   }
 }

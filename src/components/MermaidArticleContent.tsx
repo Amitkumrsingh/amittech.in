@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from 'react'
+import { MERMAID_SAFE_CONFIG, sanitizeMermaidSource } from '../lib/mermaid'
 
 type MermaidArticleContentProps = {
   html: string
@@ -37,8 +38,7 @@ export default function MermaidArticleContent({ html }: MermaidArticleContentPro
       if (cancelled) return
 
       mermaid.initialize({
-        startOnLoad: false,
-        securityLevel: 'strict',
+        ...MERMAID_SAFE_CONFIG,
         theme: 'dark',
         fontFamily: 'var(--font-sans), Inter, ui-sans-serif, system-ui, sans-serif',
         suppressErrorRendering: true,
@@ -70,11 +70,13 @@ export default function MermaidArticleContent({ html }: MermaidArticleContentPro
         processedHosts.add(host)
         if (host.dataset.mermaidError === 'true') continue
 
-        const code = source.textContent?.trim() || ''
+        const code = sanitizeMermaidSource(source.textContent || '')
         if (!code || !isMermaidSource(source, code)) continue
 
         try {
           const diagramId = `mermaid-blog-${crypto.randomUUID()}`
+          await mermaid.parse(code, { suppressErrors: false })
+          if (cancelled) return
           const { svg, bindFunctions } = await mermaid.render(diagramId, code)
           if (cancelled) return
 

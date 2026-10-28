@@ -788,6 +788,7 @@ export default function AdminDashboard() {
                   autoSaveKey={`amittech-cms-draft-${form.id || 'new'}`}
                   documentTitle={form.title || 'Untitled article'}
                   postId={form.id}
+                  aiUserId={user?.id}
                   aiContext={{
                     title: form.title,
                     excerpt: form.excerpt,

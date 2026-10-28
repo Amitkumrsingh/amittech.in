@@ -17,7 +17,7 @@ import TaskList from '@tiptap/extension-task-list'
 import TextAlign from '@tiptap/extension-text-align'
 import { TextStyle } from '@tiptap/extension-text-style'
 import Underline from '@tiptap/extension-underline'
-import { EditorContent, useEditor } from '@tiptap/react'
+import { EditorContent, NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer, useEditor, type ReactNodeViewProps } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import {
   AlignCenter,
@@ -62,6 +62,7 @@ import {
 } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { cn } from '../lib/classes'
+import { MERMAID_SAFE_CONFIG, sanitizeMermaidSource } from '../lib/mermaid'
 import MicroButton from './MicroButton'
 import type { AppState, BinaryFiles, ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types'
 import type { ExcalidrawElement, NonDeleted } from '@excalidraw/excalidraw/element/types'
@@ -79,6 +80,7 @@ type RichTextEditorProps = {
   autoSaveKey?: string
   documentTitle?: string
   postId?: string
+  aiUserId?: string
   aiContext?: {
     title?: string
     excerpt?: string
@@ -282,6 +284,35 @@ const DiagramBlock = Node.create({
   }
 })
 
+const MermaidBlock = Node.create({
+  priority: 1100,
+  name: 'mermaidBlock',
+  group: 'block',
+  content: 'text*',
+  code: true,
+  defining: true,
+  isolating: true,
+  parseHTML() {
+    return [{
+      tag: 'pre',
+      getAttrs: element => {
+        const code = element.querySelector('code')
+        const marked = element.classList.contains('mermaid')
+          || code?.classList.contains('mermaid')
+          || code?.classList.contains('language-mermaid')
+          || code?.classList.contains('lang-mermaid')
+        return marked ? {} : false
+      }
+    }]
+  },
+  renderHTML() {
+    return ['pre', ['code', { class: 'language-mermaid' }, 0]]
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(MermaidBlockView)
+  }
+})
+
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
     fontSize: {
@@ -309,7 +340,7 @@ const mermaidTemplate = `flowchart LR
     API --> Service[Application Service]
     Service --> Database[(Database)]`
 
-export default function RichTextEditor({ value, onChange, onUploadImage, onSave, autoSaveKey, documentTitle, postId, aiContext, onApplyAiMetadata }: RichTextEditorProps) {
+export default function RichTextEditor({ value, onChange, onUploadImage, onSave, autoSaveKey, documentTitle, postId, aiUserId, aiContext, onApplyAiMetadata }: RichTextEditorProps) {
   const [sourceMode, setSourceMode] = useState(false)
   const [focusMode, setFocusMode] = useState(false)
   const [mounted, setMounted] = useState(false)
@@ -327,6 +358,16 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
   const [aiResult, setAiResult] = useState<AiResult | null>(null)
   const [aiDraftHtml, setAiDraftHtml] = useState('')
   const [aiImage, setAiImage] = useState<AiImageResult | null>(null)
+  const [aiStreamText, setAiStreamText] = useState('')
+  const [aiStreamType, setAiStreamType] = useState<'markdown' | 'mermaid'>('markdown')
+  const [aiStreaming, setAiStreaming] = useState(false)
+  const [aiStreamError, setAiStreamError] = useState('')
+  const [aiMermaidValid, setAiMermaidValid] = useState(false)
+  const [aiCacheHit, setAiCacheHit] = useState(false)
+  const [aiHintDismissed, setAiHintDismissed] = useState(false)
+  const aiAbortRef = useRef<AbortController | null>(null)
+  const editorRef = useRef<Editor | null>(null)
+  const aiAnchorRef = useRef<{ from: number; to: number; selectedText: string } | null>(null)
   const [aiForm, setAiForm] = useState<AiForm>({
     action: 'generate-draft',
     topic: '',
@@ -370,6 +411,7 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
       TableCell,
       TaskList,
       TaskItem.configure({ nested: true }),
+      MermaidBlock,
       DiagramBlock,
       TextAlign.configure({
         types: ['heading', 'paragraph']
@@ -383,6 +425,17 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
     editorProps: {
       attributes: {
         class: 'text-base leading-8 outline-none'
+      },
+      handleKeyDown: (view, event) => {
+        if (sourceMode || event.key !== ' ') return false
+        const state = view.state
+        const paragraph = state.selection.$from.parent
+        if (paragraph.type.name !== 'paragraph' || !/^\/(?:ai|generate)$/i.test(paragraph.textContent.trim())) return false
+        event.preventDefault()
+        const from = state.selection.$from.start()
+        view.dispatch(state.tr.delete(from, state.selection.$from.pos))
+        openAiAssistant()
+        return true
       }
     },
     onUpdate({ editor }) {
@@ -392,12 +445,25 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
     },
     onSelectionUpdate() {
       setRevision(current => current + 1)
+    },
+    onTransaction({ transaction }) {
+      if (!transaction.docChanged || !aiAnchorRef.current) return
+      aiAnchorRef.current = {
+        ...aiAnchorRef.current,
+        from: transaction.mapping.map(aiAnchorRef.current.from),
+        to: transaction.mapping.map(aiAnchorRef.current.to)
+      }
     }
   })
 
   useEffect(() => {
+    editorRef.current = editor
+  }, [editor])
+
+  useEffect(() => {
     setMounted(true)
-  }, [])
+    setAiHintDismissed(window.localStorage.getItem(`amittech-ai-hint:${aiUserId || 'anonymous'}`) === 'dismissed')
+  }, [aiUserId])
 
   useEffect(() => {
     if (!editor || sourceMode) return
@@ -503,7 +569,7 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
           keywords: aiContext?.tags,
           title: aiContext?.title || documentTitle,
           excerpt: aiContext?.excerpt,
-          html: value,
+          html: editor.getHTML(),
           contentText: editor.getText()
         })
       })
@@ -537,10 +603,135 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
   }
 
   function openAiAssistant() {
-    const selectedText = getSelectedText()
-    const currentText = editor?.getText().trim() || ''
+    const activeEditor = editorRef.current || editor
+    const selectedText = activeEditor ? activeEditor.state.doc.textBetween(activeEditor.state.selection.from, activeEditor.state.selection.to, '\n').trim() : ''
+    const currentText = activeEditor?.getText().trim() || ''
     setAiWorkflow(selectedText ? 'improve' : currentText.length < 120 ? 'draft' : 'seo-media')
+    aiAnchorRef.current = activeEditor ? {
+      from: activeEditor.state.selection.from,
+      to: activeEditor.state.selection.to,
+      selectedText
+    } : null
+    setAiForm(current => ({ ...current, action: selectedText ? 'rewrite' : 'generate-draft' }))
+    setAiStreamText('')
+    setAiStreamError('')
+    setAiCacheHit(false)
+    setAiResult(null)
+    setAiError('')
     setAiOpen(true)
+  }
+
+  function closeInlineAi() {
+    aiAbortRef.current?.abort()
+    aiAbortRef.current = null
+    aiAnchorRef.current = null
+    setAiStreaming(false)
+    setAiOpen(false)
+  }
+
+  async function runInlineAi(action: AiAction = aiForm.action, bypassCache = false) {
+    if (!editor || !['generate-draft', 'rewrite', 'format-content', 'system-diagram'].includes(action)) return
+    aiAbortRef.current?.abort()
+    const controller = new AbortController()
+    aiAbortRef.current = controller
+    const selectedText = getSelectedText()
+    aiAnchorRef.current = { from: editor.state.selection.from, to: editor.state.selection.to, selectedText }
+    setAiForm(current => ({ ...current, action }))
+    setAiStreamText('')
+    setAiStreamError('')
+    setAiMermaidValid(false)
+    setAiStreamType(action === 'system-diagram' ? 'mermaid' : 'markdown')
+    setAiStreaming(true)
+
+    try {
+      const response = await fetch('/api/ai/stream', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        credentials: 'same-origin',
+        signal: controller.signal,
+        body: JSON.stringify({
+          action,
+          instruction: aiForm.notes,
+          postId,
+          topic: aiForm.topic || aiContext?.title || documentTitle,
+          targetAudience: aiForm.targetAudience,
+          tone: aiForm.tone,
+          category: aiForm.category || aiContext?.category,
+          keywords: aiForm.keywords,
+          notes: aiForm.notes,
+          desiredLength: aiForm.desiredLength,
+          selectedText: boundAiContext(selectedText, 4000),
+          title: aiContext?.title || documentTitle,
+          excerpt: aiContext?.excerpt,
+          html: boundAiContext(editor.getHTML()),
+          contentText: nearbyEditorContext(editor),
+          bypassCache
+        })
+      })
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null
+        throw new Error(payload?.error || 'AI request failed')
+      }
+      if (!response.body) throw new Error('AI did not return a stream')
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        buffer += decoder.decode(value || new Uint8Array(), { stream: !done })
+        const frames = buffer.split(/\r?\n\r?\n/)
+        buffer = frames.pop() || ''
+        for (const frame of frames) {
+          const eventMatch = frame.match(/^event:\s*(\w+)\s*$/m)
+          const dataMatch = frame.match(/^data:\s*(.+)$/m)
+          if (!dataMatch) continue
+          const data = JSON.parse(dataMatch[1]) as { text?: string; error?: string; contentType?: 'markdown' | 'mermaid'; cached?: boolean }
+          if (eventMatch?.[1] === 'start') setAiCacheHit(Boolean(data.cached))
+          if (eventMatch?.[1] === 'start' && data.contentType) setAiStreamType(data.contentType)
+          if (eventMatch?.[1] === 'delta' && data.text) setAiStreamText(current => current + data.text)
+          if (eventMatch?.[1] === 'complete' && data.text) setAiStreamText(data.text)
+          if (eventMatch?.[1] === 'error') throw new Error(data.error || 'AI generation failed')
+        }
+        if (done) break
+      }
+    } catch (error) {
+      const wasAborted = controller.signal.aborted
+      if (!wasAborted) {
+        controller.abort()
+        setAiStreamError(error instanceof Error ? error.message : 'AI request failed')
+      }
+    } finally {
+      if (aiAbortRef.current === controller) aiAbortRef.current = null
+      setAiStreaming(false)
+    }
+  }
+
+  function acceptInlineAi() {
+    if (!editor || !aiStreamText.trim() || (aiStreamType === 'mermaid' && !aiMermaidValid)) return
+    const anchor = aiAnchorRef.current
+    if (!anchor) return
+    if (anchor.selectedText) {
+      const currentSelection = editor.state.selection
+      if (currentSelection.from !== anchor.from || currentSelection.to !== anchor.to) {
+        setAiStreamError('The target selection changed. Select the original text again before replacing it.')
+        return
+      }
+      const current = editor.state.doc.textBetween(anchor.from, anchor.to, '\n').trim()
+      if (current !== anchor.selectedText.trim()) {
+        setAiStreamError('The selected text changed. Select it again before replacing it.')
+        return
+      }
+    }
+    const html = aiStreamType === 'mermaid' ? mermaidSourceToHtml(aiStreamText) : markdownToEditorHtml(aiStreamText)
+    editor.chain().focus().insertContentAt({ from: anchor.from, to: anchor.to }, html).run()
+    aiAnchorRef.current = null
+    setAiOpen(false)
+    setAiStreamText('')
+  }
+
+  function dismissAiHint() {
+    setAiHintDismissed(true)
+    window.localStorage.setItem(`amittech-ai-hint:${aiUserId || 'anonymous'}`, 'dismissed')
   }
 
   async function runAi(nextAction = aiForm.action) {
@@ -561,11 +752,11 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
           keywords: aiForm.keywords,
           notes: aiForm.notes,
           desiredLength: aiForm.desiredLength,
-          selectedText: getSelectedText(),
+          selectedText: boundAiContext(getSelectedText()),
           title: aiContext?.title || documentTitle,
           excerpt: aiContext?.excerpt,
-          html: value,
-          contentText: editor.getText()
+          html: boundAiContext(editor.getHTML()),
+          contentText: nearbyEditorContext(editor)
         })
       })
       const payload = await response.json() as { ok: boolean; error?: string; data?: { result: AiResult } }
@@ -704,6 +895,32 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
       onCloseInsertMenu={() => setInsertMenuOpen(false)}
       onOpenDiagram={openDiagramAssistant}
       onOpenAi={openAiAssistant}
+      aiPanel={aiOpen ? (
+        <InlineAiBlock
+          form={aiForm}
+          streaming={aiStreaming}
+          streamText={aiStreamText}
+          streamType={aiStreamType}
+          hasSelection={Boolean(getSelectedText())}
+          contextLabel={getSelectedText() ? 'Using the current selection as context.' : 'Using nearby article context.'}
+          error={aiStreamError || aiError}
+          showHint={!aiHintDismissed}
+          mermaidValid={aiMermaidValid}
+          cacheHit={aiCacheHit}
+          metadataText={aiResult ? aiResultToPlainText(aiResult) : ''}
+          metadataLoading={aiLoading}
+          onChange={setAiForm}
+          onGenerate={runInlineAi}
+          onStreamTextChange={setAiStreamText}
+          onMetadata={action => { setAiForm(current => ({ ...current, action })); setAiResult(null); setAiError(''); setAiStreamError(''); void runAi(action) }}
+          onApplyMetadata={applyAiMetadata}
+          onStop={() => { aiAbortRef.current?.abort() }}
+          onAccept={acceptInlineAi}
+          onDismiss={closeInlineAi}
+          onDismissHint={dismissAiHint}
+          onMermaidValid={setAiMermaidValid}
+        />
+      ) : null}
     />
   )
 
@@ -738,35 +955,6 @@ export default function RichTextEditor({ value, onChange, onUploadImage, onSave,
             document.body
           )
         : null}
-      {aiOpen && mounted
-        ? createPortal(
-            <AiAssistantDrawer
-              form={aiForm}
-              workflow={aiWorkflow}
-              result={aiResult}
-              draftHtml={aiDraftHtml}
-              image={aiImage}
-              loading={aiLoading}
-              imageLoading={aiImageLoading}
-              error={aiError}
-              selectedText={getSelectedText()}
-              canApplyMetadata={Boolean(onApplyAiMetadata)}
-              onChange={setAiForm}
-              onWorkflowChange={setAiWorkflow}
-              onDraftChange={setAiDraftHtml}
-              onRun={runAi}
-              onGenerateImage={runAiImage}
-              onInsert={() => insertAiResult('insert')}
-              onAppend={() => insertAiResult('append')}
-              onReplace={() => insertAiResult('replace')}
-              onInsertImage={insertAiImage}
-              onCopy={copyAiResult}
-              onApplyMetadata={applyAiMetadata}
-              onClose={() => setAiOpen(false)}
-            />,
-            document.body
-          )
-        : null}
     </>
   )
 }
@@ -795,7 +983,8 @@ function EditorShell({
   onToggleInsertMenu,
   onCloseInsertMenu,
   onOpenDiagram,
-  onOpenAi
+  onOpenAi,
+  aiPanel
 }: {
   editor: Editor
   mode: EditorMode
@@ -821,6 +1010,7 @@ function EditorShell({
   onCloseInsertMenu: () => void
   onOpenDiagram: () => void
   onOpenAi: () => void
+  aiPanel?: ReactNode
 }) {
   return (
     <div
@@ -847,11 +1037,12 @@ function EditorShell({
             <MicroButton
               type="button"
               onClick={onOpenAi}
-              className="toolbar-tooltip inline-flex h-9 items-center gap-2 rounded-lg border border-fuchsia-200 bg-fuchsia-50 px-3 text-xs font-bold text-fuchsia-800 transition hover:bg-fuchsia-100"
-              data-tooltip="Ask AI"
+              disabled={sourceMode}
+              className="toolbar-tooltip inline-flex h-9 items-center gap-2 rounded-lg border border-fuchsia-200 bg-fuchsia-50 px-3 text-xs font-bold text-fuchsia-800 transition hover:bg-fuchsia-100 disabled:cursor-not-allowed disabled:opacity-50"
+              data-tooltip="Write with AI"
             >
               <WandSparkles size={16} />
-              Ask AI
+              Write with AI
             </MicroButton>
             <ToolbarButton icon={Undo2} label="Undo" disabled={sourceMode || !editor.can().undo()} onClick={() => editor.chain().focus().undo().run()} />
             <ToolbarButton icon={Redo2} label="Redo" disabled={sourceMode || !editor.can().redo()} onClick={() => editor.chain().focus().redo().run()} />
@@ -902,6 +1093,8 @@ function EditorShell({
           )}
         </div>
       </div>
+
+      {aiPanel}
 
       <div className="flex flex-wrap items-center gap-3 border-t border-slate-200 bg-slate-50 px-4 py-2 text-xs text-slate-600">
         <span>{stats.words} words</span>
@@ -1073,7 +1266,7 @@ function EditorToolbar({
       </ToolbarGroup>
 
       <ToolbarGroup>
-        <ToolbarButton icon={Sparkles} label="Ask AI" disabled={sourceMode} onClick={onOpenAi} />
+        <ToolbarButton icon={Sparkles} label="Write with AI" disabled={sourceMode} onClick={onOpenAi} />
         <ToolbarButton icon={Eraser} label="Clear formatting" disabled={sourceMode} onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()} />
         <ToolbarButton icon={sourceMode ? Eye : FileCode2} label={sourceMode ? 'Visual editor' : 'HTML source'} active={sourceMode} onClick={onToggleSource} />
         <ToolbarButton icon={Maximize2} label="Focus mode" onClick={onToggleFocus} />
@@ -2131,6 +2324,223 @@ function isAiBlock(value: unknown): value is AiBlock {
   if (!value || typeof value !== 'object') return false
   const block = value as AiBlock
   return ['heading', 'paragraph', 'blockquote', 'code', 'list'].includes(block.type)
+}
+
+function InlineAiBlock({ form, streaming, streamText, streamType, hasSelection, contextLabel, error, showHint, mermaidValid, cacheHit, metadataText, metadataLoading, onChange, onGenerate, onStreamTextChange, onMetadata, onApplyMetadata, onStop, onAccept, onDismiss, onDismissHint, onMermaidValid }: {
+  form: AiForm
+  streaming: boolean
+  streamText: string
+  streamType: 'markdown' | 'mermaid'
+  hasSelection: boolean
+  contextLabel: string
+  error: string
+  showHint: boolean
+  mermaidValid: boolean
+  cacheHit: boolean
+  metadataText: string
+  metadataLoading: boolean
+  onChange: (form: AiForm) => void
+  onGenerate: (action: AiAction, bypassCache?: boolean) => Promise<void>
+  onStreamTextChange: (text: string) => void
+  onMetadata: (action: AiAction) => void
+  onApplyMetadata: () => void
+  onStop: () => void
+  onAccept: () => void
+  onDismiss: () => void
+  onDismissHint: () => void
+  onMermaidValid: (valid: boolean) => void
+}) {
+  const [codeMode, setCodeMode] = useState(false)
+  const hasOutput = Boolean(streamText.trim())
+
+  return (
+    <section className="border-t border-cyan-200 bg-white px-4 py-4 text-slate-900 shadow-inner" aria-label="Inline AI writing assistant">
+      <div className="mx-auto max-w-5xl">
+        {showHint ? (
+          <div className="mb-3 flex items-start justify-between gap-3 rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs leading-5 text-cyan-950">
+            <p><strong>Tip:</strong> type <code>/ai</code> in an empty paragraph to write, improve selected text, or generate a diagram.</p>
+            <button type="button" className="text-cyan-700 underline" onClick={onDismissHint}>Got it</button>
+          </div>
+        ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-bold uppercase tracking-[0.16em] text-cyan-700">Write with AI</span>
+          <button type="button" onClick={() => onGenerate('generate-draft')} disabled={streaming || metadataLoading} className={cn('rounded-lg px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50', form.action === 'generate-draft' ? 'bg-cyan-600 text-white' : 'bg-slate-100 text-slate-700')}>Write</button>
+          <button type="button" onClick={() => onGenerate('rewrite')} disabled={streaming || metadataLoading || !hasSelection} className={cn('rounded-lg px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50', form.action === 'rewrite' ? 'bg-cyan-600 text-white' : 'bg-slate-100 text-slate-700')}>Improve selection</button>
+          <button type="button" onClick={() => onGenerate('system-diagram')} disabled={streaming || metadataLoading} className={cn('rounded-lg px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50', form.action === 'system-diagram' ? 'bg-cyan-600 text-white' : 'bg-slate-100 text-slate-700')}>Generate diagram</button>
+          <select defaultValue="" disabled={streaming || metadataLoading} onChange={event => { if (event.target.value) onMetadata(event.target.value as AiAction); event.target.value = '' }} className="rounded-lg border border-slate-200 bg-slate-100 px-2 py-1.5 text-xs font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50">
+            <option value="">More AI actions</option>
+            <option value="seo">SEO metadata</option>
+            <option value="title-ideas">Title ideas</option>
+            <option value="tags">Tags</option>
+            <option value="excerpt">Excerpt</option>
+            <option value="linkedin-post">LinkedIn post</option>
+            <option value="image-prompt">Cover prompt</option>
+          </select>
+          <button type="button" onClick={onDismiss} className="ml-auto rounded-lg p-1.5 text-slate-500 hover:bg-slate-100" aria-label="Close AI assistant"><X size={16} /></button>
+        </div>
+        <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]">
+          <textarea
+            value={form.notes}
+            onChange={event => onChange({ ...form, notes: event.target.value })}
+            rows={2}
+            placeholder={form.action === 'system-diagram' ? 'Describe the flow or architecture to diagram...' : 'Tell AI what to write or change...'}
+            className="w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-6 outline-none focus:border-cyan-500"
+          />
+          <div className="grid gap-2">
+            <input value={form.tone} onChange={event => onChange({ ...form, tone: event.target.value })} placeholder="Tone" className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs" />
+            <input value={form.targetAudience} onChange={event => onChange({ ...form, targetAudience: event.target.value })} placeholder="Audience" className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs" />
+            <input value={form.desiredLength} onChange={event => onChange({ ...form, desiredLength: event.target.value })} placeholder="Length" className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs" />
+          </div>
+        </div>
+        <p className="mt-2 text-[11px] font-medium text-slate-500">{contextLabel}</p>
+        <p className="mt-1 text-[11px] text-slate-400">Help: type <code>/ai</code> or <code>/generate</code> in an empty paragraph to reopen this block.</p>
+        {metadataLoading ? <p className="mt-3 rounded-lg bg-violet-50 px-3 py-2 text-xs text-violet-700">Generating metadata…</p> : null}
+        {error ? <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p> : null}
+        {metadataText ? <div className="mt-3 rounded-xl border border-violet-200 bg-violet-50 p-3"><div className="flex items-center justify-between gap-3"><span className="text-[10px] font-bold uppercase tracking-[0.16em] text-violet-700">{metadataLoading ? 'Generating metadata' : 'Metadata preview'}</span><button type="button" onClick={onApplyMetadata} disabled={metadataLoading} className="rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-40">Apply</button></div><pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap text-xs leading-5 text-violet-950">{metadataText}</pre></div> : null}
+        {hasOutput ? (
+          <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+            <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2">
+              <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">{streaming ? 'Generating live' : cacheHit ? 'Reused result' : streamType === 'mermaid' ? 'Diagram preview' : 'AI preview'}</span>
+              <div className="flex items-center gap-2">
+                {streamType === 'mermaid' ? <button type="button" onClick={() => setCodeMode(current => !current)} className="text-xs font-semibold text-cyan-700">{codeMode ? 'Preview' : 'Code'}</button> : null}
+                {streaming ? <button type="button" onClick={onStop} className="rounded-lg bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">Stop</button> : <button type="button" onClick={() => onGenerate(form.action, true)} className="rounded-lg bg-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700"><RefreshCw size={12} className="mr-1 inline" />Regenerate</button>}
+                <button type="button" onClick={onDismiss} className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">Discard</button>
+                <button type="button" onClick={onAccept} disabled={streaming || (streamType === 'mermaid' && !mermaidValid)} className="rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-40">Accept</button>
+              </div>
+            </div>
+            {streamType === 'mermaid' && !codeMode ? (
+              <LiveMermaidPreview source={streamText} onValidChange={onMermaidValid} />
+            ) : (
+              <div contentEditable={streamType === 'mermaid' && !streaming} suppressContentEditableWarning onInput={event => onStreamTextChange(event.currentTarget.textContent || '')} className="max-h-72 overflow-auto whitespace-pre-wrap px-4 py-3 text-sm leading-6 text-slate-800 outline-none">{streamText}</div>
+            )}
+            {streamType === 'mermaid' && !mermaidValid && !streaming ? <div className="flex items-center justify-between gap-3 border-t border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"><span>Mermaid is still invalid. Edit the code or repair it before accepting.</span><button type="button" onClick={() => onGenerate('system-diagram', true)} className="rounded-lg bg-amber-200 px-2 py-1 font-semibold text-amber-950">Repair with AI</button></div> : null}
+          </div>
+        ) : (
+          <div className="mt-3 flex items-center justify-between gap-3 text-xs text-slate-500">
+            <p>The response will appear here and stay temporary until you accept it.</p>
+            {streaming ? <button type="button" onClick={onStop} className="rounded-lg bg-amber-100 px-2.5 py-1 font-semibold text-amber-800">Stop</button> : null}
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function LiveMermaidPreview({ source, onValidChange }: { source: string; onValidChange: (valid: boolean) => void }) {
+  const [svg, setSvg] = useState('')
+  const [error, setError] = useState('')
+  const renderId = useRef(0)
+
+  useEffect(() => {
+    const currentId = ++renderId.current
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        const clean = sanitizeMermaidSource(source)
+        if (!clean) {
+          setSvg('')
+          setError('')
+          onValidChange(false)
+          return
+        }
+        try {
+          const { default: mermaid } = await import('mermaid')
+          mermaid.initialize({ ...MERMAID_SAFE_CONFIG, theme: 'default' })
+          await mermaid.parse(clean, { suppressErrors: false })
+          const rendered = await mermaid.render(`inline-mermaid-${Date.now()}`, clean)
+          if (currentId !== renderId.current) return
+          setSvg(rendered.svg)
+          setError('')
+          onValidChange(true)
+        } catch (renderError) {
+          if (currentId !== renderId.current) return
+          setError(renderError instanceof Error ? renderError.message : 'Invalid Mermaid syntax')
+          onValidChange(false)
+        }
+      })()
+    }, 450)
+    return () => window.clearTimeout(timer)
+  }, [source, onValidChange])
+
+  return (
+    <div className="min-h-40 overflow-auto bg-white p-4">
+      {svg ? <div className="mermaid-diagram__canvas" dangerouslySetInnerHTML={{ __html: svg }} /> : <p className="text-xs text-slate-500">{error || 'Waiting for a complete diagram...'}</p>}
+      {svg && error ? <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">{error}</p> : null}
+    </div>
+  )
+}
+
+function MermaidBlockView({ node }: ReactNodeViewProps) {
+  const [codeMode, setCodeMode] = useState(false)
+  const source = node.textContent
+
+  return (
+    <NodeViewWrapper className="my-5 overflow-hidden rounded-xl border border-cyan-200 bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b border-cyan-100 bg-cyan-50 px-3 py-2">
+        <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-cyan-700">Mermaid diagram</span>
+        <button type="button" onClick={() => setCodeMode(current => !current)} className="text-xs font-semibold text-cyan-700">
+          {codeMode ? 'Preview' : 'Code'}
+        </button>
+      </div>
+      <NodeViewContent
+        as="div"
+        className={cn(
+          'block whitespace-pre-wrap px-4 py-3 font-mono text-xs leading-5 text-slate-800 outline-none',
+          codeMode ? 'min-h-28' : 'pointer-events-none max-h-0 overflow-hidden p-0 opacity-0'
+        )}
+      />
+      {!codeMode ? <LiveMermaidPreview source={source} onValidChange={() => undefined} /> : null}
+    </NodeViewWrapper>
+  )
+}
+
+function mermaidSourceToHtml(source: string) {
+  return `<pre><code class="language-mermaid">${escapeHtml(sanitizeMermaidSource(source))}</code></pre>`
+}
+
+function markdownToEditorHtml(markdown: string) {
+  const lines = markdown.replace(/\r/g, '').split('\n')
+  const html: string[] = []
+  let list: string[] = []
+  let code: string[] = []
+  let inCode = false
+  const flushList = () => {
+    if (list.length) html.push(`<ul>${list.map(item => `<li>${formatInlineMarkdown(item)}</li>`).join('')}</ul>`)
+    list = []
+  }
+  const flushCode = () => {
+    if (code.length) html.push(`<pre><code>${escapeHtml(code.join('\n'))}</code></pre>`)
+    code = []
+  }
+  for (const line of lines) {
+    if (line.trim().startsWith('```')) {
+      if (inCode) flushCode()
+      else { flushList(); inCode = true }
+      continue
+    }
+    if (inCode) { code.push(line); continue }
+    const heading = line.match(/^(#{1,4})\s+(.+)$/)
+    if (heading) { flushList(); html.push(`<h${heading[1].length}>${formatInlineMarkdown(heading[2])}</h${heading[1].length}>`); continue }
+    const item = line.match(/^\s*[-*]\s+(.+)$/)
+    if (item) { list.push(item[1]); continue }
+    if (!line.trim()) { flushList(); continue }
+    flushList(); html.push(`<p>${formatInlineMarkdown(line)}</p>`)
+  }
+  if (inCode) flushCode()
+  flushList()
+  return html.join('') || '<p></p>'
+}
+
+function boundAiContext(value: string, max = 5600) {
+  return value.length > max ? `${value.slice(0, max)}\n[truncated]` : value
+}
+
+function nearbyEditorContext(editor: Editor, max = 5600) {
+  const text = editor.getText()
+  if (text.length <= max) return text
+  const cursorOffset = editor.state.doc.textBetween(0, editor.state.selection.from, '\n').length
+  const half = Math.floor(max / 2)
+  const start = Math.max(0, Math.min(cursorOffset - half, text.length - max))
+  return `${start > 0 ? '[earlier text omitted]\n' : ''}${text.slice(start, start + max)}${start + max < text.length ? '\n[later text omitted]' : ''}`
 }
 
 function htmlToPlainText(html: string) {

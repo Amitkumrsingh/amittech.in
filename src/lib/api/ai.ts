@@ -1,9 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import type { z } from 'zod'
+import { createHash } from 'crypto'
 import { canManageResource, requireUser, type AuthenticatedUser } from './auth'
 import { ApiError, methodNotAllowed, ok, withApiErrorHandling } from './http'
 import { prisma } from './prisma'
-import { aiGenerateSchema } from './schemas'
+import { aiGenerateSchema, aiStreamSchema } from './schemas'
 
 export type AiAction =
   | 'generate-draft'
@@ -18,6 +19,7 @@ export type AiAction =
   | 'system-diagram'
 
 type AiInput = z.infer<typeof aiGenerateSchema>
+export type AiStreamInput = z.infer<typeof aiStreamSchema>
 
 type AiBlock = {
   type: 'heading' | 'paragraph' | 'blockquote' | 'code' | 'list'
@@ -74,12 +76,7 @@ export type AiDiagramResponse = {
   notes?: string[]
 }
 
-type RateBucket = {
-  date: string
-  count: number
-}
-
-const aiRateBuckets = new Map<string, RateBucket>()
+export const AI_PROMPT_VERSION = 'inline-ai-v1'
 
 const ACTION_LABELS: Record<AiAction, string> = {
   'generate-draft': 'Generate blog draft',
@@ -132,19 +129,23 @@ async function assertCanUseAiForPost(input: AiInput, user: AuthenticatedUser) {
   if (!canManageResource(user, post.authorId)) throw new ApiError(403, 'Cannot use AI on this post', 'AI_POST_FORBIDDEN')
 }
 
-function checkAiRateLimit(user: AuthenticatedUser) {
+export async function checkAiRateLimit(user: AuthenticatedUser) {
   const dailyLimit = user.role === 'SUPER_ADMIN'
     ? Number(process.env.AI_DAILY_LIMIT_ADMIN || 200)
     : Number(process.env.AI_DAILY_LIMIT_USER || 20)
-  const key = `${user.id}:${todayKey()}`
-  const bucket = aiRateBuckets.get(key) || { date: todayKey(), count: 0 }
+  const bucket = await prisma.aiUsageCounter.upsert({
+    where: { userId_date: { userId: user.id, date: todayKey() } },
+    create: { userId: user.id, date: todayKey(), count: 0 },
+    update: {}
+  })
+  const updated = await prisma.aiUsageCounter.updateMany({
+    where: { id: bucket.id, count: { lt: dailyLimit } },
+    data: { count: { increment: 1 } }
+  })
 
-  if (bucket.count >= dailyLimit) {
+  if (updated.count !== 1) {
     throw new ApiError(429, "You have reached today's AI generation limit.", 'AI_DAILY_LIMIT_REACHED')
   }
-
-  bucket.count += 1
-  aiRateBuckets.set(key, bucket)
 }
 
 function buildPrompt(action: AiAction, input: AiInput) {
@@ -260,6 +261,189 @@ Return JSON only. No markdown fences. Shape:
   "notes": ["Any assumption or missing detail"]
 }
 `.trim()
+}
+
+export function buildStreamingPrompt(action: AiStreamInput['action'], input: AiStreamInput) {
+  const instruction = input.instruction?.trim() || 'Write a useful first draft from the available context.'
+  const context = `
+Topic: ${input.topic || input.title || 'Not provided'}
+Title: ${input.title || 'Not provided'}
+Category: ${input.category || 'Not provided'}
+Audience: ${input.targetAudience || 'Backend and platform engineers'}
+Tone: ${input.tone || 'Practical, direct, senior engineer'}
+Length: ${input.desiredLength || 'Medium'}
+Keywords: ${normalizeKeywords(input.keywords) || 'Not provided'}
+Instruction: ${truncate(instruction, 2000)}
+Notes: ${truncate(input.notes || '', 2000) || 'Not provided'}
+Selected text: ${truncate(input.selectedText || '', 4000) || 'Not provided'}
+Article text: ${truncate(input.contentText || '', 6000) || 'Not provided'}
+HTML context: ${truncate(input.html || '', 3000) || 'Not provided'}
+`.trim()
+
+  if (action === 'system-diagram') {
+    return `You are a system design assistant in a private engineering blog CMS.
+Generate only Mermaid source code for a readable flowchart or sequence diagram.
+Use 6-14 nodes and concise labels. Do not use %%{init}%% directives, click handlers, HTML, external links, or scripts. Do not wrap the answer in markdown fences. Do not invent metrics, companies, or incidents.
+
+${context}`
+  }
+
+  return `You are an AI writing assistant in a private engineering blog CMS.
+Generate only editable Markdown. Never publish, invent incidents, metrics, companies, outages, or personal stories. Use short paragraphs, clear headings when useful, and practical engineering tradeoffs.
+
+Task: ${action === 'rewrite' ? 'Improve the selected text or article section' : action === 'format-content' ? 'Format the article for readability while preserving meaning' : 'Write a blog draft'}
+
+${context}`
+}
+
+function modelForAction(_action: AiAction) {
+  return process.env.GEMINI_MODEL || 'gemini-2.5-flash'
+}
+
+export function aiRequestHash(action: AiStreamInput['action'], input: AiStreamInput) {
+  const effective = {
+    action,
+    postId: input.postId || '',
+    instruction: input.instruction || '',
+    topic: input.topic || '',
+    targetAudience: input.targetAudience || '',
+    tone: input.tone || '',
+    category: input.category || '',
+    keywords: normalizeKeywords(input.keywords),
+    notes: input.notes || '',
+    selectedText: input.selectedText || '',
+    title: input.title || '',
+    excerpt: input.excerpt || '',
+    contentText: input.contentText || '',
+    html: input.html || '',
+    desiredLength: input.desiredLength || '',
+    visualStyle: input.visualStyle || '',
+    colorPalette: input.colorPalette || '',
+    model: modelForAction(action),
+    promptVersion: AI_PROMPT_VERSION
+  }
+  return createHash('sha256').update(JSON.stringify(effective)).digest('hex')
+}
+
+export async function getCachedAiResponse(userId: string, input: AiStreamInput) {
+  const requestHash = aiRequestHash(input.action, input)
+  const cached = await prisma.aiResponseCache.findUnique({
+    where: { userId_requestHash: { userId, requestHash } },
+    select: { id: true, result: true, contentType: true, expiresAt: true }
+  }).catch(() => null)
+  if (!cached) return null
+  if (cached.expiresAt <= new Date()) {
+    void prisma.aiResponseCache.delete({ where: { id: cached.id } }).catch(() => undefined)
+    return null
+  }
+
+  const result = cached.result as { text?: unknown }
+  return {
+    requestHash,
+    text: typeof result?.text === 'string' ? result.text : '',
+    contentType: cached.contentType
+  }
+}
+
+export async function cleanupExpiredAiCache(limit = 50) {
+  const safeLimit = Math.min(Math.max(Math.floor(limit), 1), 100)
+  try {
+    const expired = await prisma.aiResponseCache.findMany({
+      where: { expiresAt: { lt: new Date() } },
+      orderBy: { expiresAt: 'asc' },
+      take: safeLimit,
+      select: { id: true }
+    })
+    if (!expired.length) return
+    await prisma.aiResponseCache.deleteMany({ where: { id: { in: expired.map(row => row.id) } } })
+  } catch {
+    // Cache maintenance must never block or fail a generation request.
+  }
+}
+
+export async function cacheAiResponse(userId: string, input: AiStreamInput, text: string, contentType: string) {
+  const requestHash = aiRequestHash(input.action, input)
+  await prisma.aiResponseCache.upsert({
+    where: { userId_requestHash: { userId, requestHash } },
+    create: {
+      userId,
+      postId: input.postId || null,
+      action: input.action,
+      requestHash,
+      model: modelForAction(input.action),
+      promptVersion: AI_PROMPT_VERSION,
+      result: { text },
+      contentType,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+    },
+    update: {
+      result: { text },
+      contentType,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+    }
+  }).catch(() => undefined)
+}
+
+export async function* streamGeminiText(prompt: string, action: AiStreamInput['action'], signal: AbortSignal) {
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey) throw new ApiError(501, 'Gemini API is not configured. Set GEMINI_API_KEY.', 'AI_NOT_CONFIGURED')
+
+  const providerBaseUrl = (process.env.GEMINI_API_BASE_URL || 'https://generativelanguage.googleapis.com').replace(/\/+$/, '')
+  const response = await fetch(`${providerBaseUrl}/v1beta/models/${encodeURIComponent(modelForAction(action))}:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
+    signal,
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: action === 'system-diagram' ? 0.2 : 0.72,
+        topP: 0.9,
+        maxOutputTokens: AI_OUTPUT_TOKEN_BUDGET[action]
+      }
+    })
+  })
+
+  if (!response.ok) {
+    const providerError = await response.json().catch(() => null) as { error?: { message?: string } } | null
+    const message = providerError?.error?.message || ''
+    if (response.status === 429 || /quota|rate/i.test(message)) throw new ApiError(429, 'Gemini quota or rate limit reached. Please try again later.', 'AI_PROVIDER_RATE_LIMIT')
+    throw new ApiError(response.status >= 500 ? 502 : response.status, 'AI generation failed. Please try again.', 'AI_PROVIDER_ERROR')
+  }
+  if (!response.body) throw new ApiError(502, 'Gemini returned no stream.', 'AI_EMPTY_RESPONSE')
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      buffer += decoder.decode(value || new Uint8Array(), { stream: !done })
+      const lines = buffer.split(/\r?\n/)
+      buffer = lines.pop() || ''
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue
+        const raw = line.slice(5).trim()
+        if (!raw || raw === '[DONE]') continue
+        const payload = JSON.parse(raw) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
+        const text = payload.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('') || ''
+        if (text) yield text
+      }
+      if (done) {
+        const finalLine = buffer.trim()
+        if (finalLine.startsWith('data:')) {
+          const raw = finalLine.slice(5).trim()
+          if (raw && raw !== '[DONE]') {
+            const payload = JSON.parse(raw) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
+            const text = payload.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('') || ''
+            if (text) yield text
+          }
+        }
+        break
+      }
+    }
+  } finally {
+    reader.releaseLock()
+  }
 }
 
 function stripJsonFence(value: string) {
@@ -630,7 +814,7 @@ export function createAiRoute(action: AiAction) {
     const input = aiGenerateSchema.parse(req.body)
 
     await assertCanUseAiForPost(input, user)
-    checkAiRateLimit(user)
+    await checkAiRateLimit(user)
 
     const result = await callGemini(buildPrompt(action, input), action)
     logAiUsage(action, user, input)
@@ -651,7 +835,7 @@ export function createAiImageRoute() {
     const input = aiGenerateSchema.parse(req.body)
 
     await assertCanUseAiForPost(input, user)
-    checkAiRateLimit(user)
+    await checkAiRateLimit(user)
 
     const prompt = input.notes || input.topic || input.title || input.contentText || 'Premium dark engineering blog cover image'
     const result = await callGeminiImage(prompt)
@@ -673,7 +857,7 @@ export function createAiDiagramRoute() {
     const input = aiGenerateSchema.parse(req.body)
 
     await assertCanUseAiForPost(input, user)
-    checkAiRateLimit(user)
+    await checkAiRateLimit(user)
 
     const result = normalizeDiagramResponse(await callGemini(buildDiagramPrompt(input), 'system-diagram'))
     logAiUsage('system-diagram', user, input)

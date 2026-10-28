@@ -74,3 +74,9 @@ export const aiGenerateSchema = z.object({
   visualStyle: z.string().trim().max(160).optional().nullable(),
   colorPalette: z.string().trim().max(160).optional().nullable()
 })
+
+export const aiStreamSchema = aiGenerateSchema.extend({
+  action: z.enum(['generate-draft', 'rewrite', 'format-content', 'system-diagram']),
+  instruction: z.string().trim().max(2000).optional().nullable(),
+  bypassCache: z.boolean().optional().default(false)
+})
