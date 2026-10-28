@@ -26,6 +26,12 @@ GEMINI_MODEL=gemini-2.5-flash
 GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 AI_DAILY_LIMIT_USER=20
 AI_DAILY_LIMIT_ADMIN=200
+INLINE_AI_ENABLED=true
+AI_STREAM_TIMEOUT_MS=55000
 ```
 
 AI output is inserted only as editable draft content. It never auto-publishes posts.
+
+When inline AI is enabled, authors can type `/ai` or `/generate` in an empty editor paragraph, or use **Write with AI**. Writing and Mermaid diagram requests stream through `POST /api/ai/stream`; metadata actions return validated fields at completion. Completed results use a 24-hour, author-scoped exact cache and do not consume another generation allowance on a cache hit. Regenerate bypasses that cache.
+
+Mermaid source is previewed locally in the editor, persisted as an escaped `language-mermaid` code block, and rendered again in the reader view with strict Mermaid security settings. The saved article contains source code, never generated SVG.
