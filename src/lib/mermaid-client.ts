@@ -1,7 +1,8 @@
 import { MERMAID_SAFE_CONFIG, sanitizeMermaidSource } from './mermaid'
+import type { MermaidConfig } from 'mermaid'
 
 type MermaidThemeOptions = {
-  theme?: string
+  theme?: MermaidConfig['theme']
   fontFamily?: string
   themeVariables?: Record<string, string>
 }
