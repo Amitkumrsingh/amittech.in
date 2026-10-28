@@ -22,7 +22,7 @@ export type BlogPost = {
   hook: string
   tags: string[]
   featured?: boolean
-  source?: 'static' | 'cms'
+  source: 'cms'
   authorName?: string
   coverImage?: string | null
   html?: string | null

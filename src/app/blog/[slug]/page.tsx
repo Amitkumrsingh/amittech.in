@@ -8,7 +8,7 @@ import BlogCover from '../../../components/BlogCover'
 import JsonLd from '../../../components/JsonLd'
 import MermaidArticleContent from '../../../components/MermaidArticleContent'
 import { getArticleTocItems } from '../../../features/blog'
-import { getAllBlogPosts, getArticleSchema, getBlogPostBySlug, getBlogPostPath, getBlogPosts, getBlogPostUrl, getRelatedPosts } from '../../../lib/blog'
+import { getAllBlogPosts, getArticleSchema, getBlogPostBySlug, getBlogPostPath, getBlogPostUrl, getRelatedPosts } from '../../../lib/blog'
 import { SEO_KEYWORDS, absoluteUrl, getOgImageUrl, SITE_NAME } from '../../../lib/site'
 
 type ArticlePageProps = {
@@ -17,11 +17,8 @@ type ArticlePageProps = {
   }
 }
 
-export function generateStaticParams() {
-  return getBlogPosts().map(post => ({ slug: post.slug }))
-}
-
 export const dynamicParams = true
+export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({ params }: ArticlePageProps): Promise<Metadata> {
   const post = await getBlogPostBySlug(params.slug)
@@ -65,8 +62,6 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   const allPosts = await getAllBlogPosts()
   const relatedPosts = getRelatedPosts(post, 3, allPosts)
   const tocItems = getArticleTocItems(post)
-  const isCmsPost = post.source === 'cms'
-
   return (
     <main className="relative px-4 pb-10 pt-24 sm:px-6 sm:pb-14 sm:pt-28">
       <ArticleReadingProgress />
@@ -111,7 +106,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
           <div className="min-w-0">
             <Callout>{post.hook}</Callout>
 
-            {isCmsPost ? <CmsArticleBody html={post.html} /> : <StaticArticleBody post={post} />}
+            <CmsArticleBody html={post.html} />
           </div>
 
           <aside className="lg:sticky lg:top-28">
@@ -150,52 +145,6 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
         </section>
       </article>
     </main>
-  )
-}
-
-function StaticArticleBody({ post }: { post: NonNullable<Awaited<ReturnType<typeof getBlogPostBySlug>>> }) {
-  return (
-    <div className="mt-10 space-y-12">
-      {(post.sections || []).map(section => (
-        <section key={section.id} id={section.id} className="scroll-mt-28">
-          <h2 className="text-3xl font-display font-semibold leading-tight text-white">{section.title}</h2>
-          <div className="mt-5 space-y-5 text-lg leading-9 text-slate-300">
-            {section.body.map(paragraph => (
-              <p key={paragraph}>{paragraph}</p>
-            ))}
-          </div>
-        </section>
-      ))}
-
-      {post.takeaways?.length ? (
-        <section id="lessons" className="scroll-mt-28 border-y border-white/10 py-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-secondary">What I took away</p>
-          <ul className="mt-5 grid gap-4">
-            {post.takeaways.map((takeaway, index) => (
-              <li key={takeaway} className="grid grid-cols-[36px_minmax(0,1fr)] gap-4">
-                <span className="grid h-9 w-9 place-items-center rounded-full border border-secondary/25 bg-secondary/10 text-sm font-semibold text-secondary">
-                  {index + 1}
-                </span>
-                <span className="pt-1 text-lg leading-8 text-slate-200">{takeaway}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      {post.productionNotes?.length ? (
-        <section id="production-notes" className="scroll-mt-28">
-          <h2 className="text-3xl font-display font-semibold text-white">Production Notes</h2>
-          <div className="mt-5 grid gap-3">
-            {post.productionNotes.map(note => (
-              <div key={note} className="border-l border-secondary/40 bg-white/[0.03] px-4 py-3 text-base leading-7 text-slate-300">
-                {note}
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
-    </div>
   )
 }
 

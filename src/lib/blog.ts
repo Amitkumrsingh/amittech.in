@@ -1,12 +1,5 @@
-import { BLOG_POSTS } from '../data/blog'
-import { BLOG_CATEGORIES, type BlogCategory, type BlogPost } from '../features/blog'
+import type { BlogCategory, BlogPost } from '../features/blog'
 import { absoluteUrl, getOgImageUrl, SITE_NAME, SITE_URL } from './site'
-
-type BlogSourceAdapter = {
-  listPosts: () => readonly BlogPost[]
-  listCategories: () => readonly BlogCategory[]
-  getPostBySlug: (slug: string) => BlogPost | undefined
-}
 
 type CmsPostRecord = {
   slug: string
@@ -29,48 +22,26 @@ type CmsPostRecord = {
   }
 }
 
-const staticBlogSource: BlogSourceAdapter = {
-  listPosts: () => BLOG_POSTS,
-  listCategories: () => BLOG_CATEGORIES,
-  getPostBySlug: (slug) => BLOG_POSTS.find(post => post.slug === slug)
-}
-
-// Future adapters can implement this same contract for Markdown, MDX,
-// Contentlayer, Notion, or a headless CMS without changing the UI.
-const blogSource: BlogSourceAdapter = staticBlogSource
-
-export function getBlogPosts() {
-  return sortPostsByPublishDate(blogSource.listPosts())
-}
-
 export async function getAllBlogPosts() {
   const cmsPosts = await getPublishedCmsBlogPosts()
-  return sortPostsByPublishDate(dedupePostsBySlug([...cmsPosts, ...getBlogPosts()]))
+  return sortPostsByPublishDate(cmsPosts)
 }
 
-export function getFeaturedPost(posts = getBlogPosts()) {
+export function getFeaturedPost(posts: readonly BlogPost[] = []) {
   return posts.find(post => post.featured) ?? posts[0]
 }
 
-export function getLatestPosts(posts = getBlogPosts()) {
+export function getLatestPosts(posts: readonly BlogPost[] = []) {
   const featured = getFeaturedPost(posts)
   return posts.filter(post => post.slug !== featured?.slug)
 }
 
-export function getBlogCategories() {
-  return blogSource.listCategories()
-}
-
 export function getBlogCategoriesForPosts(posts: readonly BlogPost[]) {
-  return Array.from(new Set([...BLOG_CATEGORIES, ...posts.map(post => post.category)])).filter(Boolean).sort()
-}
-
-export function getBlogPost(slug: string) {
-  return blogSource.getPostBySlug(slug)
+  return Array.from(new Set(posts.map(post => post.category))).filter(Boolean).sort()
 }
 
 export async function getBlogPostBySlug(slug: string) {
-  return getBlogPost(slug) ?? await getPublishedCmsBlogPost(slug)
+  return getPublishedCmsBlogPost(slug)
 }
 
 export function getBlogPostPath(post: BlogPost) {
@@ -81,7 +52,7 @@ export function getBlogPostUrl(post: BlogPost) {
   return absoluteUrl(getBlogPostPath(post))
 }
 
-export function getRelatedPosts(post: BlogPost, limit = 3, posts = getBlogPosts()) {
+export function getRelatedPosts(post: BlogPost, limit = 3, posts: readonly BlogPost[] = []) {
   return posts
     .filter(candidate => candidate.slug !== post.slug)
     .sort((a, b) => {
@@ -99,15 +70,6 @@ function sortPostsByPublishDate(posts: readonly BlogPost[]) {
   return [...posts].sort((a, b) => b.publishDate.localeCompare(a.publishDate))
 }
 
-function dedupePostsBySlug(posts: readonly BlogPost[]) {
-  const seen = new Set<string>()
-  return posts.filter(post => {
-    if (seen.has(post.slug)) return false
-    seen.add(post.slug)
-    return true
-  })
-}
-
 export function formatPublishDate(date: string) {
   return new Intl.DateTimeFormat('en', {
     month: 'short',
@@ -116,7 +78,7 @@ export function formatPublishDate(date: string) {
   }).format(new Date(`${date}T00:00:00.000Z`))
 }
 
-export function getBlogSchema(posts = getBlogPosts()) {
+export function getBlogSchema(posts: readonly BlogPost[] = []) {
   return {
     '@context': 'https://schema.org',
     '@type': 'Blog',
