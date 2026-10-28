@@ -2373,6 +2373,7 @@ function InlineAiBlock({ form, streaming, streamText, streamType, hasSelection, 
   onMermaidValid: (valid: boolean) => void
 }) {
   const [codeMode, setCodeMode] = useState(false)
+  const [mermaidError, setMermaidError] = useState('')
   const hasOutput = Boolean(streamText.trim())
   const diagramMode = form.action === 'system-diagram'
 
@@ -2449,12 +2450,17 @@ function InlineAiBlock({ form, streaming, streamText, streamType, hasSelection, 
                 <button type="button" onClick={onAccept} disabled={streaming || (streamType === 'mermaid' && !mermaidValid)} className="rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white disabled:opacity-40">Accept</button>
               </div>
             </div>
-            {streamType === 'mermaid' && !codeMode ? (
-              <LiveMermaidPreview source={streamText} onValidChange={onMermaidValid} />
+            {streamType === 'mermaid' ? (
+              <>
+                <div className={codeMode ? 'hidden' : undefined}>
+                  <LiveMermaidPreview source={streamText} onValidChange={onMermaidValid} onError={setMermaidError} />
+                </div>
+                {codeMode ? <div contentEditable={!streaming} suppressContentEditableWarning onInput={event => { onStreamTextChange(event.currentTarget.textContent || ''); onMermaidValid(false) }} className="max-h-72 overflow-auto whitespace-pre-wrap px-4 py-3 text-sm leading-6 text-slate-800 outline-none">{streamText}</div> : null}
+              </>
             ) : (
-              <div contentEditable={streamType === 'mermaid' && !streaming} suppressContentEditableWarning onInput={event => onStreamTextChange(event.currentTarget.textContent || '')} className="max-h-72 overflow-auto whitespace-pre-wrap px-4 py-3 text-sm leading-6 text-slate-800 outline-none">{streamText}</div>
+              <div contentEditable={!streaming} suppressContentEditableWarning onInput={event => onStreamTextChange(event.currentTarget.textContent || '')} className="max-h-72 overflow-auto whitespace-pre-wrap px-4 py-3 text-sm leading-6 text-slate-800 outline-none">{streamText}</div>
             )}
-            {streamType === 'mermaid' && !mermaidValid && !streaming ? <div className="flex items-center justify-between gap-3 border-t border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"><span>Mermaid is still invalid. Edit the code or repair it before accepting.</span><button type="button" onClick={() => onGenerate('system-diagram', true)} className="rounded-lg bg-amber-200 px-2 py-1 font-semibold text-amber-950">Repair with AI</button></div> : null}
+            {streamType === 'mermaid' && !mermaidValid && !streaming ? <div className="flex items-center justify-between gap-3 border-t border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"><span>{mermaidError || 'Mermaid is still invalid. Edit the code or repair it before accepting.'}</span><button type="button" onClick={() => onGenerate('system-diagram', true)} className="rounded-lg bg-amber-200 px-2 py-1 font-semibold text-amber-950">Repair with AI</button></div> : null}
           </div>
         ) : (
           <div className="mt-3 flex items-center justify-between gap-3 text-xs text-slate-500">
@@ -2467,7 +2473,7 @@ function InlineAiBlock({ form, streaming, streamText, streamType, hasSelection, 
   )
 }
 
-function LiveMermaidPreview({ source, onValidChange }: { source: string; onValidChange: (valid: boolean) => void }) {
+function LiveMermaidPreview({ source, onValidChange, onError }: { source: string; onValidChange: (valid: boolean) => void; onError?: (message: string) => void }) {
   const [svg, setSvg] = useState('')
   const [error, setError] = useState('')
   const renderId = useRef(0)
@@ -2481,6 +2487,7 @@ function LiveMermaidPreview({ source, onValidChange }: { source: string; onValid
           setSvg('')
           setError('')
           onValidChange(false)
+          onError?.('')
           return
         }
         try {
@@ -2489,15 +2496,18 @@ function LiveMermaidPreview({ source, onValidChange }: { source: string; onValid
           setSvg(rendered.svg)
           setError('')
           onValidChange(true)
+          onError?.('')
         } catch (renderError) {
           if (currentId !== renderId.current) return
-          setError(renderError instanceof Error ? renderError.message : 'Invalid Mermaid syntax')
+          const message = renderError instanceof Error ? renderError.message : 'Invalid Mermaid syntax'
+          setError(message)
           onValidChange(false)
+          onError?.(message)
         }
       })()
     }, 450)
     return () => window.clearTimeout(timer)
-  }, [source, onValidChange])
+  }, [source, onError, onValidChange])
 
   return (
     <div className="min-h-40 overflow-auto bg-white p-4">
