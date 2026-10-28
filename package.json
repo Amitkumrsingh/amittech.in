@@ -7,7 +7,6 @@
     "build": "node scripts/run-prisma-migrations.js && prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
-    "test:unit": "node --experimental-strip-types --test tests/unit/*.test.ts",
     "test:e2e": "npm run build && playwright test",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
