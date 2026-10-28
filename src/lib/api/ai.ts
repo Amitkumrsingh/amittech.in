@@ -5,6 +5,7 @@ import { canManageResource, requireUser, type AuthenticatedUser } from './auth'
 import { ApiError, methodNotAllowed, ok, withApiErrorHandling } from './http'
 import { prisma } from './prisma'
 import { aiGenerateSchema, aiStreamSchema } from './schemas'
+import { parseSseFrame, splitSseFrames } from '../sse'
 
 export type AiAction =
   | 'generate-draft'
@@ -414,6 +415,13 @@ export async function cacheAiResponse(userId: string, input: AiStreamInput, text
   }).catch(() => undefined)
 }
 
+function extractGeminiTextFromSseFrame(frame: string) {
+  const parsed = parseSseFrame(frame)
+  if (!parsed || parsed.data === '[DONE]') return ''
+  const payload = JSON.parse(parsed.data) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
+  return payload.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('') || ''
+}
+
 export async function* streamGeminiText(prompt: string, action: AiStreamInput['action'], signal: AbortSignal) {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) throw new ApiError(501, 'Gemini API is not configured. Set GEMINI_API_KEY.', 'AI_NOT_CONFIGURED')
@@ -448,26 +456,15 @@ export async function* streamGeminiText(prompt: string, action: AiStreamInput['a
     while (true) {
       const { done, value } = await reader.read()
       buffer += decoder.decode(value || new Uint8Array(), { stream: !done })
-      const lines = buffer.split(/\r?\n/)
-      buffer = lines.pop() || ''
-      for (const line of lines) {
-        if (!line.startsWith('data:')) continue
-        const raw = line.slice(5).trim()
-        if (!raw || raw === '[DONE]') continue
-        const payload = JSON.parse(raw) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
-        const text = payload.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('') || ''
+      const parsedFrames = splitSseFrames(buffer)
+      buffer = parsedFrames.remainder
+      for (const frame of parsedFrames.frames) {
+        const text = extractGeminiTextFromSseFrame(frame)
         if (text) yield text
       }
       if (done) {
-        const finalLine = buffer.trim()
-        if (finalLine.startsWith('data:')) {
-          const raw = finalLine.slice(5).trim()
-          if (raw && raw !== '[DONE]') {
-            const payload = JSON.parse(raw) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
-            const text = payload.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('') || ''
-            if (text) yield text
-          }
-        }
+        const text = extractGeminiTextFromSseFrame(buffer)
+        if (text) yield text
         break
       }
     }

@@ -31,6 +31,17 @@ test('SSE heartbeat comments are ignored and multiline data is preserved', () =>
   })
 })
 
+test('Gemini SSE payloads are parsed as complete frames', () => {
+  const frame = [
+    'event: message',
+    'data: {"candidates":[{"content":',
+    'data: {"parts":[{"text":"first"},{"text":" second"}]}}]}'
+  ].join('\n')
+  const parsed = parseSseJsonFrame(frame)
+  assert.deepEqual(parsed?.payload, { candidates: [{ content: { parts: [{ text: 'first' }, { text: ' second' }] } }] })
+  assert.equal(parseSseFrame('data: [DONE]')?.data, '[DONE]')
+})
+
 test('Mermaid source extraction removes trailing prose and unsafe directives', () => {
   const source = extractMermaidSource('```mermaid\nsequenceDiagram\nparticipant Web UI\nAuthor->>Web UI: Submit Draft\n```\nThis explanation must not be cached.')
   assert.equal(source, 'sequenceDiagram\nparticipant Web UI\nAuthor->>Web UI: Submit Draft')
