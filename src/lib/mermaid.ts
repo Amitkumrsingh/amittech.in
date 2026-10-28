@@ -16,7 +16,7 @@ export function sanitizeMermaidSource(value: string) {
 }
 
 const mermaidHeader = /^(?:flowchart|graph|sequenceDiagram)\b/i
-const flowStatement = /^(?:subgraph\b|end\b|direction\b|classDef\b|class\b|style\b|linkStyle\b|[A-Za-z][\w-]*\s*(?:\[[^\n]*\]|\([^\n]*\)|\{[^\n]*\}|\(\([^\n]*\)\)|>[^\n]*\)|\s*(?:-->|---|-.->|==>|--\|[^|]+\|-->))/i
+const flowStatement = /^(?:subgraph\b|end\b|direction\b|classDef\b|class\b|style\b|linkStyle\b|[A-Za-z][\w-]*\s*(?:\[[^\n]*\]|\{[^\n]*\}|\(\([^\n]*\)\)|\([^\n]*\)))/i
 const flowEdge = /(?:-->|---|-.->|==>|--\|[^|]+\|-->)/
 const sequenceStatement = /^(?:participant|actor|activate|deactivate|autonumber|title|note|loop|alt|else|opt|par|and|critical|break|rect|end|box|\s*[A-Za-z][\w-]*\s*(?:-[-.]*>>?|<<[-.]*-|--?>|->)\s*[A-Za-z][\w-]*\s*:)/i
 
