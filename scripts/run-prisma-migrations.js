@@ -11,6 +11,18 @@ if (!process.env.DATABASE_URL) {
 }
 
 const command = process.platform === 'win32' ? 'npx.cmd' : 'npx'
-const result = spawnSync(command, ['prisma', 'migrate', 'deploy'], { stdio: 'inherit' })
+const retryCount = Math.min(Math.max(Number(process.env.PRISMA_MIGRATE_RETRIES || 3), 1), 5)
+let result
 
-process.exit(result.status || 0)
+for (let attempt = 1; attempt <= retryCount; attempt += 1) {
+  result = spawnSync(command, ['prisma', 'migrate', 'deploy'], { stdio: 'inherit' })
+  if (result.status === 0) break
+
+  if (attempt < retryCount) {
+    const delayMs = 3000 * attempt
+    console.warn(`Prisma migration attempt ${attempt} failed; retrying in ${delayMs}ms.`)
+    spawnSync(process.execPath, ['-e', `setTimeout(() => {}, ${delayMs})`], { stdio: 'ignore' })
+  }
+}
+
+process.exit(result?.status || 1)
